@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+
+{% block title %}New Biennial Inventory{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="header-content">
+        <h1>New Biennial Inventory</h1>
+        <p class="subtitle">DEA Required Physical Inventory Count</p>
+    </div>
+    <div class="header-actions">
+        <a href="{{ url_for('biennial_inventory') }}" class="btn btn-secondary">
+            <i class="icon">←</i> Back to Biennial Inventories
+        </a>
+    </div>
+</div>
+
+<div class="biennial-form-container">
+    <div class="alert alert-info">
+        <h4>ℹ️ DEA Biennial Inventory Requirements</h4>
+        <ul>
+            <li><strong>Schedule II substances</strong> require an EXACT count of all units</li>
+            <li><strong>Schedule III-V substances</strong> may use an estimated count unless the container holds more than 1,000 units</li>
+            <li>A witness signature is required to complete the inventory</li>
+            <li>Records must be retained for a minimum of 2 years</li>
+        </ul>
+    </div>
+
+    <form method="POST" action="{{ url_for('new_biennial_inventory') }}">
+        <div class="form-card">
+            <h3>Inventory Information</h3>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="inventory_date">Inventory Date *</label>
+                    <input type="date" name="inventory_date" id="inventory_date" 
+                           value="{{ now.strftime('%Y-%m-%d') }}" required>
+                </div>
+                <div class="form-group">
+                    <label for="inventory_time">Start Time *</label>
+                    <input type="time" name="inventory_time" id="inventory_time" 
+                           value="{{ now.strftime('%H:%M') }}" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="notes">General Notes</label>
+                <textarea name="notes" id="notes" rows="3" 
+                    placeholder="Any general notes about this inventory..."></textarea>
+            </div>
+        </div>
+
+        <div class="form-card">
+            <h3>Inventory Items</h3>
+            <p class="form-description">
+                Review and count each inventory item. Schedule II items are highlighted and require exact counts.
+            </p>
+
+            {% if inventory_items %}
+            <table class="data-table inventory-count-table">
+                <thead>
+                    <tr>
+                        <th>Medication</th>
+                        <th>Schedule</th>
+                        <th>Lot #</th>
+                        <th>Expiration</th>
+                        <th>System Qty</th>
+                        <th>Count Method</th>
+                        <th>Actual Count *</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in inventory_items %}
+                    <tr class="{% if item.medication.schedule == 'II' %}schedule-ii-row{% endif %}">
+                        <td>
+                            <strong>{{ item.medication.name }}</strong><br>
+                            <small class="text-muted">{{ item.medication.strength }} {{ item.medication.form }}</small>
+                            <input type="hidden" name="item_ids[]" value="{{ item.id }}">
+                        </td>
+                        <td>
+                            <span class="schedule-badge schedule-{{ item.medication.schedule }}">
+                                {{ item.medication.schedule }}
+                            </span>
+                        </td>
+                        <td>{{ item.lot_number }}</td>
+                        <td>{% if item.expiration_date %}{{ item.expiration_date.strftime('%m/%d/%Y') }}{% else %}N/A{% endif %}</td>
+                        <td><strong>{{ item.current_quantity }}</strong> {{ item.unit_count or 'units' }}</td>
+                        <td>
+                            {% if item.medication.schedule == 'II' %}
+                            <span class="method-badge exact">Exact (Required)</span>
+                            <input type="hidden" name="count_method_{{ item.id }}" value="exact">
+                            {% else %}
+                            <select name="count_method_{{ item.id }}" class="count-method-select">
+                                <option value="exact">Exact Count</option>
+                                <option value="estimated">Estimated</option>
+                            </select>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <input type="number" name="count_{{ item.id }}" 
+                                   class="count-input" min="0" required
+                                   value="{{ item.current_quantity }}"
+                                   placeholder="Enter count">
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                <p>No inventory items found. Add inventory items before creating a biennial inventory.</p>
+                <a href="{{ url_for('receive_inventory') }}" class="btn btn-primary">Receive Inventory</a>
+            </div>
+            {% endif %}
+        </div>
+
+        {% if inventory_items %}
+        <div class="form-card">
+            <h3>Witness Information</h3>
+            <p class="form-description">
+                A witness is required to verify the accuracy of this inventory. The witness should be present during the count.
+            </p>
+
+            <div class="form-group">
+                <label for="witness_id">Witness *</label>
+                <select name="witness_id" id="witness_id" required>
+                    <option value="">-- Select Witness --</option>
+                    {% for user in witnesses %}
+                    <option value="{{ user.id }}">{{ user.full_name }} ({{ user.role|title }})</option>
+                    {% endfor %}
+                </select>
+                <small class="form-help">The witness should be a different person than the one performing the count.</small>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" name="action" value="save_draft" class="btn btn-secondary">
+                Save as Draft
+            </button>
+            <button type="submit" name="action" value="complete" class="btn btn-primary">
+                Complete Inventory
+            </button>
+        </div>
+        {% endif %}
+    </form>
+</div>
+
+<style>
+.biennial-form-container {
+    max-width: 1200px;
+}
+
+.form-card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.form-card h3 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.1rem;
+    color: #1e4d6b;
+}
+
+.form-description {
+    color: #6c757d;
+    margin-bottom: 1rem;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+.inventory-count-table {
+    width: 100%;
+    margin-top: 1rem;
+}
+
+.schedule-ii-row {
+    background-color: #fff5f5 !important;
+}
+
+.schedule-ii-row:hover {
+    background-color: #ffe8e8 !important;
+}
+
+.method-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.method-badge.exact {
+    background: #dc3545;
+    color: white;
+}
+
+.count-method-select {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+}
+
+.count-input {
+    width: 100px;
+    padding: 0.5rem;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    text-align: center;
+    font-weight: 600;
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    padding: 1rem 0;
+}
+
+.alert ul {
+    margin: 0.5rem 0 0 0;
+    padding-left: 1.5rem;
+}
+</style>
+{% endblock %}
