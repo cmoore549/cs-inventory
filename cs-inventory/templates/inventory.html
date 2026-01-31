@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+
+{% block title %}Current Inventory{% endblock %}
+{% block page_title %}Current Inventory{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('receive_inventory') }}" class="btn btn-primary btn-sm">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+    </svg>
+    Receive Inventory
+</a>
+{% endblock %}
+
+{% block content %}
+<!-- Search & Filters -->
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="GET" class="search-bar">
+            <div class="search-input-wrapper">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" name="search" class="form-control" placeholder="Search by medication name or lot number..." value="{{ search }}">
+            </div>
+            <div class="filter-group">
+                <select name="schedule" class="form-control" style="width:auto;">
+                    <option value="">All Schedules</option>
+                    <option value="II" {% if schedule_filter == 'II' %}selected{% endif %}>Schedule II</option>
+                    <option value="III" {% if schedule_filter == 'III' %}selected{% endif %}>Schedule III</option>
+                    <option value="IV" {% if schedule_filter == 'IV' %}selected{% endif %}>Schedule IV</option>
+                    <option value="V" {% if schedule_filter == 'V' %}selected{% endif %}>Schedule V</option>
+                </select>
+                <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.875rem;">
+                    <input type="checkbox" name="show_empty" value="true" {% if show_empty %}checked{% endif %}>
+                    Show empty
+                </label>
+                <button type="submit" class="btn btn-secondary">Filter</button>
+                {% if search or schedule_filter or show_empty %}
+                <a href="{{ url_for('inventory') }}" class="btn btn-outline">Clear</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Schedule II Inventory (Separate per DEA) -->
+{% if schedule_ii_items %}
+<div class="inventory-section">
+    <div class="section-title">
+        <h2>
+            <span class="schedule-indicator schedule-ii">SCHEDULE II</span>
+            Controlled Substances
+        </h2>
+        <span class="text-muted" style="margin-left:auto;font-size:0.85rem;">
+            DEA requires separate recordkeeping for Schedule II substances
+        </span>
+    </div>
+    
+    <div class="card">
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Medication</th>
+                        <th>Strength</th>
+                        <th>Lot #</th>
+                        <th>Expiration</th>
+                        <th class="text-right">Quantity</th>
+                        <th>Storage</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in schedule_ii_items %}
+                    <tr>
+                        <td>
+                            <strong>{{ item.medication.name }}</strong>
+                            {% if item.medication.generic_name %}<br><small class="text-muted">{{ item.medication.generic_name }}</small>{% endif %}
+                        </td>
+                        <td>{{ item.medication.strength or '-' }}</td>
+                        <td class="font-mono">{{ item.lot_number or '-' }}</td>
+                        <td>
+                            {% if item.expiration_date %}
+                                {% set days_left = (item.expiration_date - now.date()).days %}
+                                <span class="{% if days_left <= 0 %}expiration-warning{% elif days_left <= 90 %}expiration-soon{% endif %}">
+                                    {{ item.expiration_date.strftime('%m/%d/%Y') }}
+                                    {% if days_left <= 0 %}<br><small>(EXPIRED)</small>{% elif days_left <= 30 %}<br><small>({{ days_left }}d)</small>{% endif %}
+                                </span>
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td class="text-right">
+                            <span class="quantity-display {% if item.current_quantity <= 0 %}quantity-low{% elif item.current_quantity < 10 %}quantity-warning{% else %}quantity-ok{% endif %}">
+                                {{ item.current_quantity }}
+                            </span>
+                            <small class="text-muted">{{ item.unit_count or 'units' }}</small>
+                        </td>
+                        <td>{{ item.storage_location or '-' }}</td>
+                        <td>
+                            <div class="btn-group">
+                                <a href="{{ url_for('inventory_detail', id=item.id) }}" class="btn btn-outline btn-sm">View</a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Other Schedules -->
+{% if other_items %}
+<div class="inventory-section">
+    <div class="section-title">
+        <h2>Schedules III-V Controlled Substances</h2>
+    </div>
+    
+    <div class="card">
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Schedule</th>
+                        <th>Medication</th>
+                        <th>Strength</th>
+                        <th>Lot #</th>
+                        <th>Expiration</th>
+                        <th class="text-right">Quantity</th>
+                        <th>Storage</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in other_items %}
+                    <tr>
+                        <td>
+                            <span class="schedule-badge schedule-{{ item.medication.schedule|lower }}">{{ item.medication.schedule }}</span>
+                        </td>
+                        <td>
+                            <strong>{{ item.medication.name }}</strong>
+                            {% if item.medication.generic_name %}<br><small class="text-muted">{{ item.medication.generic_name }}</small>{% endif %}
+                        </td>
+                        <td>{{ item.medication.strength or '-' }}</td>
+                        <td class="font-mono">{{ item.lot_number or '-' }}</td>
+                        <td>
+                            {% if item.expiration_date %}
+                                {% set days_left = (item.expiration_date - now.date()).days %}
+                                <span class="{% if days_left <= 0 %}expiration-warning{% elif days_left <= 90 %}expiration-soon{% endif %}">
+                                    {{ item.expiration_date.strftime('%m/%d/%Y') }}
+                                    {% if days_left <= 0 %}<br><small>(EXPIRED)</small>{% elif days_left <= 30 %}<br><small>({{ days_left }}d)</small>{% endif %}
+                                </span>
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td class="text-right">
+                            <span class="quantity-display {% if item.current_quantity <= 0 %}quantity-low{% elif item.current_quantity < 10 %}quantity-warning{% else %}quantity-ok{% endif %}">
+                                {{ item.current_quantity }}
+                            </span>
+                            <small class="text-muted">{{ item.unit_count or 'units' }}</small>
+                        </td>
+                        <td>{{ item.storage_location or '-' }}</td>
+                        <td>
+                            <div class="btn-group">
+                                <a href="{{ url_for('inventory_detail', id=item.id) }}" class="btn btn-outline btn-sm">View</a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if not schedule_ii_items and not other_items %}
+<div class="card">
+    <div class="card-body text-center" style="padding: 3rem;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48" style="color:var(--gray-400);margin-bottom:1rem;">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+        </svg>
+        <h3 style="color:var(--gray-600);">No inventory items found</h3>
+        <p class="text-muted">{% if search or schedule_filter %}Try adjusting your filters or {% endif %}<a href="{{ url_for('receive_inventory') }}">receive new inventory</a>.</p>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

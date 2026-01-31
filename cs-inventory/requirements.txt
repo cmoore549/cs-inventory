@@ -1,0 +1,18 @@
+# Controlled Substance Inventory Management System
+# Magnolia Health PLLC
+# Requirements for production deployment
+
+# Core Framework
+Flask>=3.0.0
+Flask-SQLAlchemy>=3.1.0
+Werkzeug>=3.0.0
+
+# Database (SQLite included, PostgreSQL optional)
+SQLAlchemy>=2.0.0
+# psycopg2-binary>=2.9.0  # Uncomment for PostgreSQL
+
+# Production Server
+gunicorn>=21.0.0
+
+# Security
+# python-dotenv>=1.0.0  # For environment variable management
