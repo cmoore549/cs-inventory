@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+
+{% block title %}Medications{% endblock %}
+{% block page_title %}Medication Catalog{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('add_medication') }}" class="btn btn-primary btn-sm">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+    </svg>
+    Add Medication
+</a>
+{% endblock %}
+
+{% block content %}
+<!-- Search & Filters -->
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="GET" class="search-bar">
+            <div class="search-input-wrapper">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" name="search" class="form-control" placeholder="Search by name, generic name, or NDC..." value="{{ search }}">
+            </div>
+            <div class="filter-group">
+                <select name="schedule" class="form-control" style="width:auto;">
+                    <option value="">All Schedules</option>
+                    <option value="II" {% if schedule_filter == 'II' %}selected{% endif %}>Schedule II</option>
+                    <option value="III" {% if schedule_filter == 'III' %}selected{% endif %}>Schedule III</option>
+                    <option value="IV" {% if schedule_filter == 'IV' %}selected{% endif %}>Schedule IV</option>
+                    <option value="V" {% if schedule_filter == 'V' %}selected{% endif %}>Schedule V</option>
+                </select>
+                <button type="submit" class="btn btn-secondary">Filter</button>
+                {% if search or schedule_filter %}
+                <a href="{{ url_for('medications') }}" class="btn btn-outline">Clear</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Medications List -->
+<div class="card">
+    <div class="card-body">
+        {% if medications %}
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Schedule</th>
+                        <th>Medication Name</th>
+                        <th>Generic Name</th>
+                        <th>Strength</th>
+                        <th>Form</th>
+                        <th>NDC</th>
+                        <th>In Stock</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for med in medications %}
+                    <tr>
+                        <td>
+                            <span class="schedule-badge schedule-{{ med.schedule|lower }}">{{ med.schedule }}</span>
+                        </td>
+                        <td>
+                            <strong>{{ med.name }}</strong>
+                        </td>
+                        <td>{{ med.generic_name or '-' }}</td>
+                        <td>{{ med.strength or '-' }}</td>
+                        <td>{{ med.form or '-' }}</td>
+                        <td class="font-mono">{{ med.ndc or '-' }}</td>
+                        <td>
+                            {% set total_qty = namespace(value=0) %}
+                            {% for inv in med.inventory_items %}
+                                {% if inv.is_active and inv.current_quantity > 0 %}
+                                    {% set total_qty.value = total_qty.value + inv.current_quantity %}
+                                {% endif %}
+                            {% endfor %}
+                            {% if total_qty.value > 0 %}
+                            <span class="quantity-display quantity-ok">{{ total_qty.value|int }}</span>
+                            {% else %}
+                            <span class="quantity-display quantity-low">0</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group">
+                                <a href="{{ url_for('edit_medication', id=med.id) }}" class="btn btn-outline btn-sm">Edit</a>
+                                <button type="button" class="btn btn-outline btn-sm btn-danger-outline" 
+                                        onclick="confirmDelete({{ med.id }}, '{{ med.name|replace("'", "\\'") }}', {{ total_qty.value|int }})">
+                                    Delete
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <svg viewBox="-1 -1 26 26" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48">
+                <path d="M19.5 12.5L12 20a4.82 4.82 0 0 1-7 0 4.82 4.82 0 0 1 0-7l7.5-7.5a4.82 4.82 0 0 1 7 0 4.82 4.82 0 0 1 0 7z"/>
+                <line x1="8.5" y1="15.5" x2="15.5" y2="8.5"/>
+            </svg>
+            <h3>No Medications Found</h3>
+            <p>{% if search or schedule_filter %}Try adjusting your filters or {% endif %}<a href="{{ url_for('add_medication') }}">add a new medication</a>.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="deleteModal" class="modal" style="display:none;">
+    <div class="modal-content" style="max-width: 450px;">
+        <div class="modal-header">
+            <h3>Delete Medication</h3>
+            <button type="button" class="modal-close" onclick="closeDeleteModal()">&times;</button>
+        </div>
+        <form method="POST" id="deleteForm">
+            <div class="modal-body">
+                <div class="alert alert-danger mb-2">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                        <circle cx="12" cy="12" r="10"/>
+                        <line x1="12" y1="8" x2="12" y2="12"/>
+                        <line x1="12" y1="16" x2="12.01" y2="16"/>
+                    </svg>
+                    <div>
+                        <strong>Warning:</strong> This action cannot be undone.
+                    </div>
+                </div>
+                <p>Are you sure you want to delete <strong id="deleteMedName"></strong>?</p>
+                <p id="deleteWarning" class="text-danger" style="display:none;"></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeDeleteModal()">Cancel</button>
+                <button type="submit" class="btn btn-danger" id="confirmDeleteBtn">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                        <polyline points="3 6 5 6 21 6"/>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                    </svg>
+                    Delete
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.btn-danger-outline {
+    color: var(--danger);
+    border-color: var(--danger);
+}
+.btn-danger-outline:hover {
+    background: var(--danger);
+    color: white;
+}
+</style>
+
+<script>
+function confirmDelete(medId, medName, totalQty) {
+    document.getElementById('deleteMedName').textContent = medName;
+    document.getElementById('deleteForm').action = '/medications/' + medId + '/delete';
+    
+    const warningEl = document.getElementById('deleteWarning');
+    const deleteBtn = document.getElementById('confirmDeleteBtn');
+    
+    if (totalQty > 0) {
+        warningEl.textContent = 'This medication has ' + totalQty + ' units in stock. You must dispense or waste all inventory before deleting.';
+        warningEl.style.display = 'block';
+        deleteBtn.disabled = true;
+    } else {
+        warningEl.style.display = 'none';
+        deleteBtn.disabled = false;
+    }
+    
+    document.getElementById('deleteModal').style.display = 'flex';
+}
+
+function closeDeleteModal() {
+    document.getElementById('deleteModal').style.display = 'none';
+}
+
+// Close modal on outside click
+document.getElementById('deleteModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeDeleteModal();
+    }
+});
+</script>
+{% endblock %}

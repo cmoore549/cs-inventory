@@ -1,0 +1,344 @@
+{% extends "base.html" %}
+
+{% block title %}Biennial Inventory - {{ inventory.inventory_date.strftime('%m/%d/%Y') }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="header-content">
+        <h1>Biennial Inventory</h1>
+        <p class="subtitle">{{ inventory.inventory_date.strftime('%B %d, %Y') }}</p>
+    </div>
+    <div class="header-actions">
+        {% if not inventory.is_completed %}
+        <a href="{{ url_for('edit_biennial_inventory', id=inventory.id) }}" class="btn btn-secondary">
+            <i class="icon">✏️</i> Edit
+        </a>
+        {% endif %}
+        <a href="{{ url_for('print_biennial_inventory', id=inventory.id) }}" class="btn btn-secondary" target="_blank">
+            <i class="icon">🖨️</i> Print
+        </a>
+        <a href="{{ url_for('biennial_inventory') }}" class="btn btn-secondary">
+            <i class="icon">←</i> Back
+        </a>
+    </div>
+</div>
+
+<div class="inventory-view">
+    <div class="status-banner {% if inventory.is_completed %}completed{% else %}draft{% endif %}">
+        {% if inventory.is_completed %}
+        <span class="status-icon">✓</span>
+        <span class="status-text">Completed on {{ inventory.completed_at.strftime('%m/%d/%Y at %I:%M %p') }}</span>
+        {% else %}
+        <span class="status-icon">📝</span>
+        <span class="status-text">Draft - Not Yet Completed</span>
+        {% endif %}
+    </div>
+
+    <div class="info-cards">
+        <div class="info-card">
+            <h3>Inventory Information</h3>
+            <div class="info-grid">
+                <div class="info-item">
+                    <label>Inventory Date</label>
+                    <span>{{ inventory.inventory_date.strftime('%m/%d/%Y') }}</span>
+                </div>
+                <div class="info-item">
+                    <label>Start Time</label>
+                    <span>{{ inventory.start_time.strftime('%I:%M %p') if inventory.start_time else 'N/A' }}</span>
+                </div>
+                <div class="info-item">
+                    <label>Conducted By</label>
+                    <span>{{ inventory.conducted_by.full_name }}</span>
+                </div>
+                <div class="info-item">
+                    <label>Status</label>
+                    <span class="status-badge {% if inventory.is_completed %}badge-success{% else %}badge-warning{% endif %}">
+                        {{ 'Completed' if inventory.is_completed else 'Draft' }}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <div class="info-card">
+            <h3>Witness Information</h3>
+            <div class="info-grid">
+                <div class="info-item">
+                    <label>Witness Name</label>
+                    <span>{{ inventory.witness.full_name if inventory.witness else 'Not Assigned' }}</span>
+                </div>
+                <div class="info-item">
+                    <label>Witness Title</label>
+                    <span>{{ inventory.witness.role|title if inventory.witness else 'N/A' }}</span>
+                </div>
+                {% if inventory.is_completed %}
+                <div class="info-item">
+                    <label>Completed At</label>
+                    <span>{{ inventory.completed_at.strftime('%m/%d/%Y at %I:%M %p') }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {% if inventory.notes %}
+    <div class="notes-card">
+        <h3>Notes</h3>
+        <p>{{ inventory.notes }}</p>
+    </div>
+    {% endif %}
+
+    <div class="items-card">
+        <h3>Inventory Items</h3>
+        
+        {% set schedule_ii_items = inventory.items|selectattr('inventory_item.medication.schedule', 'equalto', 'II')|list %}
+        {% set other_items = inventory.items|rejectattr('inventory_item.medication.schedule', 'equalto', 'II')|list %}
+
+        {% if schedule_ii_items %}
+        <div class="schedule-section">
+            <h4 class="schedule-header schedule-ii">Schedule II Substances (Exact Count Required)</h4>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Medication</th>
+                        <th>Strength</th>
+                        <th>Form</th>
+                        <th>Lot #</th>
+                        <th>Expiration</th>
+                        <th>Count Method</th>
+                        <th>Quantity Counted</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in schedule_ii_items %}
+                    <tr>
+                        <td><strong>{{ item.inventory_item.medication.name }}</strong></td>
+                        <td>{{ item.inventory_item.medication.strength }}</td>
+                        <td>{{ item.inventory_item.medication.form }}</td>
+                        <td>{{ item.inventory_item.lot_number }}</td>
+                        <td>{{ item.inventory_item.expiration_date.strftime('%m/%d/%Y') }}</td>
+                        <td><span class="method-badge exact">Exact</span></td>
+                        <td><strong>{{ item.quantity_counted }}</strong></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        {% if other_items %}
+        <div class="schedule-section">
+            <h4 class="schedule-header schedule-other">Schedule III-V Substances</h4>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Medication</th>
+                        <th>Schedule</th>
+                        <th>Strength</th>
+                        <th>Form</th>
+                        <th>Lot #</th>
+                        <th>Expiration</th>
+                        <th>Count Method</th>
+                        <th>Quantity Counted</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in other_items %}
+                    <tr>
+                        <td><strong>{{ item.inventory_item.medication.name }}</strong></td>
+                        <td>
+                            <span class="schedule-badge schedule-{{ item.inventory_item.medication.schedule }}">
+                                {{ item.inventory_item.medication.schedule }}
+                            </span>
+                        </td>
+                        <td>{{ item.inventory_item.medication.strength }}</td>
+                        <td>{{ item.inventory_item.medication.form }}</td>
+                        <td>{{ item.inventory_item.lot_number }}</td>
+                        <td>{{ item.inventory_item.expiration_date.strftime('%m/%d/%Y') }}</td>
+                        <td>
+                            <span class="method-badge {{ item.count_method }}">
+                                {{ item.count_method|title }}
+                            </span>
+                        </td>
+                        <td><strong>{{ item.quantity_counted }}</strong></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        {% if not schedule_ii_items and not other_items %}
+        <div class="empty-state">
+            <p>No items recorded in this inventory.</p>
+        </div>
+        {% endif %}
+    </div>
+
+    {% if not inventory.is_completed %}
+    <div class="action-bar">
+        <form method="POST" action="{{ url_for('complete_biennial_inventory', id=inventory.id) }}" 
+              onsubmit="return confirm('Are you sure you want to complete this inventory? This action cannot be undone.');">
+            <button type="submit" class="btn btn-primary btn-lg">
+                <i class="icon">✓</i> Complete Inventory
+            </button>
+        </form>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.inventory-view {
+    max-width: 1200px;
+}
+
+.status-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    font-weight: 500;
+}
+
+.status-banner.completed {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-banner.draft {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.status-icon {
+    font-size: 1.25rem;
+}
+
+.info-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.info-card, .notes-card, .items-card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 1.5rem;
+}
+
+.info-card h3, .notes-card h3, .items-card h3 {
+    margin: 0 0 1rem 0;
+    font-size: 1.1rem;
+    color: #1e4d6b;
+    border-bottom: 1px solid #e9ecef;
+    padding-bottom: 0.5rem;
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+
+.info-item label {
+    display: block;
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin-bottom: 0.25rem;
+}
+
+.info-item span {
+    font-weight: 500;
+}
+
+.notes-card {
+    margin-bottom: 1.5rem;
+}
+
+.notes-card p {
+    margin: 0;
+    color: #495057;
+}
+
+.items-card {
+    margin-bottom: 1.5rem;
+}
+
+.schedule-section {
+    margin-bottom: 2rem;
+}
+
+.schedule-section:last-child {
+    margin-bottom: 0;
+}
+
+.schedule-header {
+    font-size: 1rem;
+    margin: 0 0 1rem 0;
+    padding: 0.75rem 1rem;
+    border-radius: 4px;
+}
+
+.schedule-header.schedule-ii {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.schedule-header.schedule-other {
+    background: #e9ecef;
+    color: #495057;
+}
+
+.method-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.method-badge.exact {
+    background: #dc3545;
+    color: white;
+}
+
+.method-badge.estimated {
+    background: #6c757d;
+    color: white;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+}
+
+.badge-success {
+    background: #d4edda;
+    color: #155724;
+}
+
+.badge-warning {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.action-bar {
+    display: flex;
+    justify-content: center;
+    padding: 1.5rem;
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.btn-lg {
+    padding: 1rem 2rem;
+    font-size: 1.1rem;
+}
+</style>
+{% endblock %}
