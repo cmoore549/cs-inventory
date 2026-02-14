@@ -1,0 +1,233 @@
+{% extends "base.html" %}
+
+{% block title %}Physical Inventory Report{% endblock %}
+{% block page_title %}Physical Inventory Report{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('physical_inventory_list') }}" class="btn btn-secondary btn-sm">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+    </svg>
+    Back to List
+</a>
+<button onclick="window.print()" class="btn btn-outline btn-sm">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+        <rect x="6" y="14" width="12" height="8"/>
+    </svg>
+    Print Report
+</button>
+{% endblock %}
+
+{% block content %}
+<div class="card mb-3">
+    <div class="card-header">
+        <h3 class="card-title">
+            {{ inventory.inventory_type|title }} Inventory - {{ inventory.inventory_date.strftime('%B %d, %Y') }}
+        </h3>
+        {% if inventory.status == 'completed' %}
+        <span class="status-badge status-success">Completed</span>
+        {% elif inventory.status == 'reviewed' %}
+        <span class="status-badge status-info">Reviewed</span>
+        {% endif %}
+    </div>
+    <div class="card-body">
+        <div class="detail-grid">
+            <div class="detail-section">
+                <h4>Summary</h4>
+                <dl class="detail-list">
+                    <dt>Total Items</dt>
+                    <dd class="font-mono font-bold">{{ inventory.total_items }}</dd>
+                    
+                    <dt>Items Counted</dt>
+                    <dd class="font-mono">{{ inventory.counted_items }}</dd>
+                    
+                    <dt>Discrepancies</dt>
+                    <dd class="font-mono {% if inventory.discrepancy_count > 0 %}text-danger{% endif %}">
+                        {{ inventory.discrepancy_count }}
+                    </dd>
+                </dl>
+            </div>
+            
+            <div class="detail-section">
+                <h4>Personnel</h4>
+                <dl class="detail-list">
+                    <dt>Started By</dt>
+                    <dd>{{ inventory.starter.full_name if inventory.starter else '-' }}</dd>
+                    
+                    <dt>Started At</dt>
+                    <dd>{{ inventory.started_at.strftime('%m/%d/%Y %H:%M') if inventory.started_at else '-' }}</dd>
+                    
+                    <dt>Completed By</dt>
+                    <dd>{{ inventory.completer.full_name if inventory.completer else '-' }}</dd>
+                    
+                    <dt>Completed At</dt>
+                    <dd>{{ inventory.completed_at.strftime('%m/%d/%Y %H:%M') if inventory.completed_at else '-' }}</dd>
+                </dl>
+            </div>
+        </div>
+        
+        {% if inventory.notes %}
+        <div class="mt-3">
+            <strong>Notes:</strong>
+            <p class="text-muted">{{ inventory.notes }}</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if inventory.discrepancy_count > 0 %}
+<div class="card mb-3">
+    <div class="card-header" style="background: rgba(200, 50, 50, 0.1);">
+        <h3 class="card-title text-danger">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            Discrepancies ({{ inventory.discrepancy_count }})
+        </h3>
+    </div>
+    <div class="card-body">
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Medication</th>
+                        <th>Lot #</th>
+                        <th class="text-right">Expected</th>
+                        <th class="text-right">Actual</th>
+                        <th class="text-right">Variance</th>
+                        <th>Notes</th>
+                        <th>Status</th>
+                        {% if current_user.role == 'admin' %}
+                        <th>Actions</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in inventory.count_items if item.discrepancy != 0 %}
+                    <tr>
+                        <td>
+                            <span class="schedule-badge schedule-{{ item.inventory_item.medication.schedule|lower }}">
+                                {{ item.inventory_item.medication.schedule }}
+                            </span>
+                            {{ item.inventory_item.medication.name }}
+                        </td>
+                        <td class="font-mono">{{ item.inventory_item.lot_number or '-' }}</td>
+                        <td class="text-right font-mono">{{ item.expected_quantity }}</td>
+                        <td class="text-right font-mono">{{ item.actual_quantity }}</td>
+                        <td class="text-right font-mono text-danger font-bold">
+                            {% if item.discrepancy > 0 %}+{% endif %}{{ item.discrepancy }}
+                        </td>
+                        <td>{{ item.discrepancy_notes or '-' }}</td>
+                        <td>
+                            {% if item.discrepancy_resolved %}
+                            <span class="status-badge status-success">Resolved</span>
+                            {% else %}
+                            <span class="status-badge status-warning">Pending</span>
+                            {% endif %}
+                        </td>
+                        {% if current_user.role == 'admin' %}
+                        <td>
+                            {% if not item.discrepancy_resolved %}
+                            <form method="POST" action="{{ url_for('adjust_from_physical_inventory', id=inventory.id) }}" style="display: inline;">
+                                <input type="hidden" name="item_id" value="{{ item.id }}">
+                                <input type="hidden" name="reason" value="Physical inventory adjustment">
+                                <button type="submit" class="btn btn-outline btn-sm" 
+                                        onclick="return confirm('Adjust inventory from {{ item.expected_quantity }} to {{ item.actual_quantity }}?');">
+                                    Adjust
+                                </button>
+                            </form>
+                            {% else %}
+                            <small class="text-muted">{{ item.resolution_notes }}</small>
+                            {% endif %}
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">All Items</h3>
+    </div>
+    <div class="card-body">
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Medication</th>
+                        <th>Lot #</th>
+                        <th>Location</th>
+                        <th class="text-right">Expected</th>
+                        <th class="text-right">Actual</th>
+                        <th class="text-right">Variance</th>
+                        <th>Counted By</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in inventory.count_items %}
+                    <tr class="{% if item.discrepancy != 0 %}row-warning{% endif %}">
+                        <td>
+                            <span class="schedule-badge schedule-{{ item.inventory_item.medication.schedule|lower }}">
+                                {{ item.inventory_item.medication.schedule }}
+                            </span>
+                            {{ item.inventory_item.medication.name }}
+                        </td>
+                        <td class="font-mono">{{ item.inventory_item.lot_number or '-' }}</td>
+                        <td>{{ item.inventory_item.storage_location or '-' }}</td>
+                        <td class="text-right font-mono">{{ item.expected_quantity }}</td>
+                        <td class="text-right font-mono">{{ item.actual_quantity if item.actual_quantity is not none else '-' }}</td>
+                        <td class="text-right font-mono {% if item.discrepancy != 0 %}text-danger{% endif %}">
+                            {% if item.actual_quantity is not none %}
+                                {% if item.discrepancy > 0 %}+{% endif %}{{ item.discrepancy }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>{{ item.counter.full_name if item.counter else '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+.detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: var(--spacing-lg);
+}
+.detail-section h4 {
+    margin-bottom: var(--spacing-md);
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    text-transform: uppercase;
+}
+.detail-list {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--spacing-sm) var(--spacing-md);
+}
+.detail-list dt {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+.detail-list dd {
+    margin: 0;
+}
+.row-warning {
+    background: rgba(181, 137, 0, 0.1);
+}
+@media print {
+    .btn, form { display: none !important; }
+}
+</style>
+{% endblock %}

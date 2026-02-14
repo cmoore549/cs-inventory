@@ -1,0 +1,275 @@
+{% extends "base.html" %}
+
+{% block title %}Usage Report{% endblock %}
+{% block page_title %}Transaction History{% endblock %}
+
+{% block content %}
+<style>
+.tx-type-badge {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+.tx-type-dispense { background: rgba(45, 106, 159, 0.15); color: var(--info); }
+.tx-type-waste { background: rgba(181, 137, 0, 0.15); color: var(--warning); }
+.tx-type-receive { background: rgba(45, 122, 79, 0.15); color: var(--success); }
+.tx-type-adjust { background: rgba(108, 117, 125, 0.15); color: var(--gray-600); }
+.tx-type-transfer { background: rgba(111, 66, 193, 0.15); color: #6f42c1; }
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+}
+.stat-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem;
+    text-align: center;
+}
+.stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--primary);
+}
+.stat-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+</style>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="GET" class="search-bar">
+            <div class="filter-group" style="flex-wrap: wrap;">
+                <div class="form-group" style="margin-bottom:0;">
+                    <input type="date" name="start_date" class="form-control" value="{{ start_date or '' }}">
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <input type="date" name="end_date" class="form-control" value="{{ end_date or '' }}">
+                </div>
+                <select name="type" class="form-control" style="width:auto;">
+                    <option value="">All Types</option>
+                    <option value="dispense" {% if type_filter == 'dispense' %}selected{% endif %}>Dispense</option>
+                    <option value="waste" {% if type_filter == 'waste' %}selected{% endif %}>Waste</option>
+                    <option value="receive" {% if type_filter == 'receive' %}selected{% endif %}>Receive (Inventory)</option>
+                    <option value="patient_receive" {% if type_filter == 'patient_receive' %}selected{% endif %}>Receive (Patient Supply)</option>
+                    <option value="adjust" {% if type_filter == 'adjust' %}selected{% endif %}>Adjustment</option>
+                    <option value="transfer" {% if type_filter == 'transfer' %}selected{% endif %}>Transfer</option>
+                </select>
+                <select name="schedule" class="form-control" style="width:auto;">
+                    <option value="">All Schedules</option>
+                    <option value="II" {% if schedule_filter == 'II' %}selected{% endif %}>Schedule II</option>
+                    <option value="III" {% if schedule_filter == 'III' %}selected{% endif %}>Schedule III</option>
+                    <option value="IV" {% if schedule_filter == 'IV' %}selected{% endif %}>Schedule IV</option>
+                    <option value="V" {% if schedule_filter == 'V' %}selected{% endif %}>Schedule V</option>
+                </select>
+                <button type="submit" class="btn btn-secondary">Filter</button>
+                {% if start_date or end_date or type_filter or schedule_filter %}
+                <a href="{{ url_for('usage_report') }}" class="btn btn-outline">Clear</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if patient_receipts %}
+<!-- Patient Supply Receipts Section -->
+<div class="card mb-3">
+    <div class="card-header" style="background: rgba(45, 122, 79, 0.1);">
+        <h3 class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+            </svg>
+            Patient Supply Receipts ({{ patient_receipts|length }})
+        </h3>
+    </div>
+    <div class="card-body">
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date Received</th>
+                        <th>Type</th>
+                        <th>Medication</th>
+                        <th>Lot #</th>
+                        <th class="text-right">Qty</th>
+                        <th>Patient</th>
+                        <th>Prescriber</th>
+                        <th>Received By</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for pm in patient_receipts %}
+                    <tr>
+                        <td class="font-mono" style="white-space:nowrap;">
+                            {{ pm.preparation_date.strftime('%m/%d/%Y') }}
+                        </td>
+                        <td>
+                            <span class="tx-type-badge" style="background: rgba(45, 122, 79, 0.15); color: var(--success);">
+                                Patient Supply
+                            </span>
+                        </td>
+                        <td>
+                            <span class="schedule-badge schedule-{{ pm.medication.schedule|lower }}">
+                                {{ pm.medication.schedule }}
+                            </span>
+                            {{ pm.medication.name }}
+                            {% if pm.medication.strength %}
+                            <br><small class="text-muted">{{ pm.medication.strength }}</small>
+                            {% endif %}
+                        </td>
+                        <td class="font-mono">{{ pm.lot_number or '-' }}</td>
+                        <td class="text-right font-mono text-success">+{{ pm.quantity_prepared }} {{ pm.unit }}</td>
+                        <td>
+                            {{ pm.patient_name }}
+                            {% if pm.patient_dob %}<br><small class="text-muted">DOB: {{ pm.patient_dob.strftime('%m/%d/%Y') }}</small>{% endif %}
+                        </td>
+                        <td>{{ pm.prescriber.full_name if pm.prescriber else '-' }}</td>
+                        <td>{{ pm.preparer.full_name if pm.preparer else '-' }}</td>
+                        <td>
+                            {% if pm.status == 'active' %}
+                            <span class="status-badge status-success">Active</span>
+                            {% elif pm.status == 'completed' %}
+                            <span class="status-badge status-info">Completed</span>
+                            {% elif pm.status == 'destroyed' %}
+                            <span class="status-badge status-danger">Destroyed</span>
+                            {% else %}
+                            <span class="status-badge">{{ pm.status|title }}</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Transactions ({{ transactions|length }}{% if transactions|length >= 500 %}+{% endif %})</h3>
+        <div class="btn-group">
+            <a href="{{ url_for('export_report', type='transactions', start_date=start_date or '', end_date=end_date or '', format='csv') }}" 
+               class="btn btn-outline btn-sm">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                Export CSV
+            </a>
+        </div>
+    </div>
+    <div class="card-body">
+        {% if transactions %}
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date/Time</th>
+                        <th>Type</th>
+                        <th>Medication</th>
+                        <th>Lot #</th>
+                        <th class="text-right">Qty</th>
+                        <th class="text-right">Balance</th>
+                        <th>Patient</th>
+                        <th>Performed By</th>
+                        <th>Witness</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tx in transactions %}
+                    <tr>
+                        <td class="font-mono" style="white-space:nowrap;">
+                            {{ tx.performed_at.strftime('%m/%d/%Y %H:%M') }}
+                        </td>
+                        <td>
+                            <span class="tx-type-badge tx-type-{{ tx.transaction_type }}">
+                                {{ tx.transaction_type|title }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="schedule-badge schedule-{{ tx.inventory_item.medication.schedule|lower }}">
+                                {{ tx.inventory_item.medication.schedule }}
+                            </span>
+                            {{ tx.inventory_item.medication.name }}
+                            {% if tx.inventory_item.medication.strength %}
+                            <br><small class="text-muted">{{ tx.inventory_item.medication.strength }}</small>
+                            {% endif %}
+                        </td>
+                        <td class="font-mono">{{ tx.inventory_item.lot_number or '-' }}</td>
+                        <td class="text-right font-mono {% if tx.transaction_type == 'receive' %}text-success{% else %}text-danger{% endif %}">
+                            {% if tx.transaction_type == 'receive' %}+{% else %}-{% endif %}{{ tx.quantity|abs }}
+                        </td>
+                        <td class="text-right font-mono font-bold">{{ tx.balance_after }}</td>
+                        <td>
+                            {% if tx.patient_name %}
+                            {{ tx.patient_name }}
+                            {% if tx.patient_dob %}<br><small class="text-muted">DOB: {{ tx.patient_dob.strftime('%m/%d/%Y') }}</small>{% endif %}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td>{{ tx.performer.full_name if tx.performer else '-' }}</td>
+                        <td>{{ tx.witness.full_name if tx.witness else '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+            </svg>
+            <h3>No Transactions Found</h3>
+            <p>{% if start_date or end_date or type_filter or schedule_filter %}Try adjusting your filters.{% else %}Transactions will appear here once you start using the system.{% endif %}</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if transactions or patient_receipts %}
+<!-- Summary Stats -->
+<div class="stats-grid mt-3">
+    <div class="stat-card">
+        <div class="stat-content">
+            <div class="stat-value">{{ transactions|selectattr('transaction_type', 'equalto', 'dispense')|list|length }}</div>
+            <div class="stat-label">Dispensed</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-content">
+            <div class="stat-value">{{ transactions|selectattr('transaction_type', 'equalto', 'waste')|list|length }}</div>
+            <div class="stat-label">Wasted</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-content">
+            <div class="stat-value">{{ transactions|selectattr('transaction_type', 'equalto', 'receive')|list|length }}</div>
+            <div class="stat-label">Inventory Received</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-content">
+            <div class="stat-value">{{ patient_receipts|length if patient_receipts else 0 }}</div>
+            <div class="stat-label">Patient Supply</div>
+        </div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-content">
+            <div class="stat-value">{{ transactions|selectattr('transaction_type', 'equalto', 'adjust')|list|length }}</div>
+            <div class="stat-label">Adjustments</div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

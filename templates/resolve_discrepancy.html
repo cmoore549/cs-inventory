@@ -1,0 +1,307 @@
+{% extends "base.html" %}
+
+{% block title %}Resolve Discrepancy{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="header-content">
+        <h1>Resolve Discrepancy</h1>
+        <p class="subtitle">Daily Count #{{ count.id }} - {{ count.count_date.strftime('%m/%d/%Y') }}</p>
+    </div>
+    <div class="header-actions">
+        <a href="{{ url_for('daily_count') }}" class="btn btn-secondary">
+            <i class="icon">←</i> Back to Daily Counts
+        </a>
+    </div>
+</div>
+
+<div class="discrepancy-container">
+    <div class="alert alert-warning">
+        <h4>⚠️ Discrepancy Detected</h4>
+        <p>A discrepancy was found during the daily count. This must be resolved with an explanation before continuing.</p>
+    </div>
+
+    <div class="discrepancy-details">
+        <div class="detail-card">
+            <h3>Inventory Item</h3>
+            <div class="info-grid">
+                <div class="info-item">
+                    <label>Medication</label>
+                    <span>{{ count.inventory_item.medication.name }} {{ count.inventory_item.medication.strength }}</span>
+                </div>
+                <div class="info-item">
+                    <label>Schedule</label>
+                    <span class="schedule-badge schedule-{{ count.inventory_item.medication.schedule }}">
+                        Schedule {{ count.inventory_item.medication.schedule }}
+                    </span>
+                </div>
+                <div class="info-item">
+                    <label>Lot Number</label>
+                    <span>{{ count.inventory_item.lot_number }}</span>
+                </div>
+                <div class="info-item">
+                    <label>Form</label>
+                    <span>{{ count.inventory_item.medication.form }}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="detail-card count-comparison">
+            <h3>Count Comparison</h3>
+            <div class="count-grid">
+                <div class="count-box expected">
+                    <span class="count-label">Expected Count</span>
+                    <span class="count-value">{{ count.expected_count }}</span>
+                </div>
+                <div class="count-box actual">
+                    <span class="count-label">Actual Count</span>
+                    <span class="count-value">{{ count.actual_count }}</span>
+                </div>
+                <div class="count-box discrepancy {% if count.discrepancy > 0 %}positive{% else %}negative{% endif %}">
+                    <span class="count-label">Discrepancy</span>
+                    <span class="count-value">
+                        {% if count.discrepancy > 0 %}+{% endif %}{{ count.discrepancy }}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <div class="detail-card">
+            <h3>Count Information</h3>
+            <div class="info-grid">
+                <div class="info-item">
+                    <label>Counted By</label>
+                    <span>{{ count.counted_by.full_name }}</span>
+                </div>
+                <div class="info-item">
+                    <label>Count Date</label>
+                    <span>{{ count.count_date.strftime('%m/%d/%Y at %I:%M %p') }}</span>
+                </div>
+                {% if count.verified_by %}
+                <div class="info-item">
+                    <label>Verified By</label>
+                    <span>{{ count.verified_by.full_name }}</span>
+                </div>
+                <div class="info-item">
+                    <label>Verified At</label>
+                    <span>{{ count.verified_at.strftime('%m/%d/%Y at %I:%M %p') if count.verified_at else 'N/A' }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="resolution-form">
+        <form method="POST" action="{{ url_for('resolve_discrepancy', id=count.id) }}">
+            <div class="form-card">
+                <h3>Resolution Details</h3>
+                
+                <div class="form-group">
+                    <label for="resolution_type">Resolution Type *</label>
+                    <select name="resolution_type" id="resolution_type" required>
+                        <option value="">-- Select Resolution Type --</option>
+                        <option value="counting_error">Counting Error - Recount Performed</option>
+                        <option value="documentation_error">Documentation Error - Records Corrected</option>
+                        <option value="spillage">Spillage/Breakage</option>
+                        <option value="theft">Suspected Theft/Diversion</option>
+                        <option value="other">Other (Explain Below)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="resolution_notes">Resolution Notes *</label>
+                    <textarea name="resolution_notes" id="resolution_notes" rows="5" required
+                        placeholder="Provide a detailed explanation of the discrepancy and how it was resolved..."></textarea>
+                    <small class="form-help">
+                        Be specific. Include details such as: root cause identified, corrective actions taken, 
+                        whether a recount was performed, etc.
+                    </small>
+                </div>
+
+                <div class="form-group">
+                    <label for="adjust_inventory">
+                        <input type="checkbox" name="adjust_inventory" id="adjust_inventory" checked>
+                        Adjust inventory to match actual count
+                    </label>
+                    <small class="form-help">
+                        If checked, the system will create an adjustment transaction to correct the inventory balance.
+                    </small>
+                </div>
+
+                <div class="alert alert-info" id="theft-warning" style="display: none;">
+                    <h4>⚠️ Theft/Diversion Selected</h4>
+                    <p>If you suspect theft or diversion, you must:</p>
+                    <ul>
+                        <li>Report to DEA within 1 business day via DEA Form 106</li>
+                        <li>Notify appropriate law enforcement</li>
+                        <li>Document all findings and preserve evidence</li>
+                    </ul>
+                    <p>After resolving this discrepancy, use the Theft/Loss Report feature to file the required report.</p>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">
+                        Resolve Discrepancy
+                    </button>
+                    <a href="{{ url_for('daily_count') }}" class="btn btn-secondary">Cancel</a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.getElementById('resolution_type').addEventListener('change', function() {
+    var warning = document.getElementById('theft-warning');
+    if (this.value === 'theft') {
+        warning.style.display = 'block';
+    } else {
+        warning.style.display = 'none';
+    }
+});
+</script>
+
+<style>
+.discrepancy-container {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.discrepancy-details {
+    display: grid;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.detail-card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 1.5rem;
+}
+
+.detail-card h3 {
+    margin: 0 0 1rem 0;
+    font-size: 1.1rem;
+    color: #1e4d6b;
+    border-bottom: 1px solid #e9ecef;
+    padding-bottom: 0.5rem;
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+
+.info-item label {
+    display: block;
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin-bottom: 0.25rem;
+}
+
+.info-item span {
+    font-weight: 500;
+}
+
+.count-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    text-align: center;
+}
+
+.count-box {
+    padding: 1.5rem;
+    border-radius: 8px;
+    background: #f8f9fa;
+}
+
+.count-box.expected {
+    background: #e9ecef;
+}
+
+.count-box.actual {
+    background: #cce5ff;
+}
+
+.count-box.discrepancy.positive {
+    background: #d4edda;
+}
+
+.count-box.discrepancy.negative {
+    background: #f8d7da;
+}
+
+.count-label {
+    display: block;
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin-bottom: 0.5rem;
+}
+
+.count-value {
+    display: block;
+    font-size: 2rem;
+    font-weight: 700;
+}
+
+.form-card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 1.5rem;
+}
+
+.form-card h3 {
+    margin: 0 0 1.5rem 0;
+    font-size: 1.1rem;
+    color: #1e4d6b;
+    border-bottom: 1px solid #e9ecef;
+    padding-bottom: 0.5rem;
+}
+
+.form-group {
+    margin-bottom: 1.25rem;
+}
+
+.form-group label {
+    display: block;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+}
+
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+.form-group textarea {
+    resize: vertical;
+    min-height: 100px;
+}
+
+.form-help {
+    display: block;
+    margin-top: 0.25rem;
+    color: #6c757d;
+    font-size: 0.85rem;
+}
+
+.form-actions {
+    margin-top: 1.5rem;
+    display: flex;
+    gap: 1rem;
+}
+
+#theft-warning ul {
+    margin: 0.5rem 0;
+    padding-left: 1.5rem;
+}
+</style>
+{% endblock %}

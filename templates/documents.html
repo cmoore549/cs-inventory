@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block title %}Documents{% endblock %}
+{% block page_title %}Document Management{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('upload_document') }}" class="btn btn-primary btn-sm">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+    </svg>
+    Upload Document
+</a>
+{% endblock %}
+
+{% block content %}
+<!-- Filter -->
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="GET" class="search-bar">
+            <div class="search-input-wrapper">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" name="search" class="form-control" placeholder="Search documents..." value="{{ search }}">
+            </div>
+            <div class="filter-group">
+                <select name="type" class="form-control" style="width:auto;">
+                    <option value="">All Types</option>
+                    <option value="packing_slip" {% if type_filter == 'packing_slip' %}selected{% endif %}>Packing Slips</option>
+                    <option value="invoice" {% if type_filter == 'invoice' %}selected{% endif %}>Invoices</option>
+                    <option value="dea_form" {% if type_filter == 'dea_form' %}selected{% endif %}>DEA Forms</option>
+                    <option value="destruction_record" {% if type_filter == 'destruction_record' %}selected{% endif %}>Destruction Records</option>
+                    <option value="other" {% if type_filter == 'other' %}selected{% endif %}>Other</option>
+                </select>
+                <button type="submit" class="btn btn-secondary">Filter</button>
+                {% if search or type_filter %}
+                <a href="{{ url_for('documents') }}" class="btn btn-outline">Clear</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Documents List -->
+<div class="card">
+    <div class="card-body">
+        {% if documents %}
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Document</th>
+                        <th>Type</th>
+                        <th>Related Medication</th>
+                        <th>Uploaded By</th>
+                        <th>Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for doc in documents %}
+                    <tr>
+                        <td>
+                            <div style="display:flex;align-items:center;gap:0.5rem;">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20" style="color:var(--gray-400);">
+                                    {% if doc.filename.endswith('.pdf') %}
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                    <polyline points="14 2 14 8 20 8"/>
+                                    {% else %}
+                                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                                    <circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/>
+                                    {% endif %}
+                                </svg>
+                                <div>
+                                    <strong>{{ doc.title or doc.filename }}</strong>
+                                    {% if doc.title and doc.title != doc.filename %}
+                                    <br><small class="text-muted">{{ doc.filename }}</small>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="doc-type-badge doc-type-{{ doc.document_type }}">
+                                {{ doc.document_type|replace('_', ' ')|title }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if doc.inventory_item %}
+                            {{ doc.inventory_item.medication.name }}
+                            <br><small class="text-muted">Lot: {{ doc.inventory_item.lot_number or 'N/A' }}</small>
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td>{{ doc.uploaded_by_user.full_name }}</td>
+                        <td>{{ doc.uploaded_at.strftime('%m/%d/%Y') }}</td>
+                        <td>
+                            <div class="btn-group">
+                                <a href="{{ url_for('view_document', id=doc.id) }}" class="btn btn-outline btn-sm" target="_blank">View</a>
+                                <a href="{{ url_for('download_document', id=doc.id) }}" class="btn btn-outline btn-sm">Download</a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+            </svg>
+            <h3>No Documents Found</h3>
+            <p>{% if search or type_filter %}Try adjusting your filters or {% endif %}<a href="{{ url_for('upload_document') }}">upload a document</a>.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Retention Notice -->
+<div class="card mt-3">
+    <div class="card-body">
+        <div class="alert alert-info" style="margin:0;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/>
+                <line x1="12" y1="8" x2="12.01" y2="8"/>
+            </svg>
+            <div>
+                <strong>Record Retention:</strong> 
+                DEA requires controlled substance records (including invoices, packing slips, and inventory records) 
+                to be retained for a minimum of <strong>2 years</strong> from the date of the transaction. 
+                NC may require longer retention. Do not delete documents without verifying retention requirements.
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
