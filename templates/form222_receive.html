@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}Receive Form 222 #{{ form222.form_number }}{% endblock %}
+{% block page_title %}Record Form 222 Receipt{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('form222_detail', id=form222.id) }}" class="btn btn-secondary btn-sm">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+    </svg>
+    Cancel
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="card mb-3">
+    <div class="card-header">
+        <h3 class="card-title">
+            <span class="font-mono">Form 222 #{{ form222.form_number }}</span>
+            {% if form222.supplier %}
+            <small class="text-muted">from {{ form222.supplier.name }}</small>
+            {% endif %}
+        </h3>
+    </div>
+    <div class="card-body">
+        <form method="POST">
+            <div class="form-group mb-3">
+                <label for="received_date" class="form-label required">Date Received</label>
+                <input type="date" name="received_date" id="received_date" class="form-control" required
+                       value="{{ form222.received_date.strftime('%Y-%m-%d') if form222.received_date else now.strftime('%Y-%m-%d') }}"
+                       style="max-width: 200px;">
+            </div>
+            
+            <h4 class="mb-3">Line Items</h4>
+            
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Line</th>
+                            <th>Medication</th>
+                            <th class="text-right">Ordered</th>
+                            <th class="text-right">Previously Received</th>
+                            <th>Qty Received Now</th>
+                            <th>Lot Number</th>
+                            <th>Expiration Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in form222.line_items|sort(attribute='line_number') %}
+                        <tr>
+                            <td class="font-mono">{{ item.line_number }}</td>
+                            <td>
+                                <span class="schedule-badge schedule-ii">II</span>
+                                {{ item.medication.name }}
+                                {% if item.medication.strength %}
+                                <br><small class="text-muted">{{ item.medication.strength }}</small>
+                                {% endif %}
+                            </td>
+                            <td class="text-right font-mono">{{ item.quantity_ordered }} {{ item.medication.unit or 'units' }}</td>
+                            <td class="text-right font-mono">{{ item.quantity_received or 0 }} {{ item.medication.unit or 'units' }}</td>
+                            <td>
+                                <input type="number" name="qty_received_{{ item.id }}" class="form-control" 
+                                       min="0" step="1" style="width: 100px;"
+                                       max="{{ item.quantity_ordered - (item.quantity_received or 0) }}"
+                                       {% if item.quantity_received >= item.quantity_ordered %}disabled{% endif %}>
+                            </td>
+                            <td>
+                                <input type="text" name="lot_number_{{ item.id }}" class="form-control font-mono"
+                                       style="width: 120px;" placeholder="Lot #"
+                                       {% if item.quantity_received >= item.quantity_ordered %}disabled{% endif %}>
+                            </td>
+                            <td>
+                                <input type="date" name="expiration_{{ item.id }}" class="form-control"
+                                       style="width: 150px;"
+                                       {% if item.quantity_received >= item.quantity_ordered %}disabled{% endif %}>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="alert alert-info mt-3">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/>
+                    <line x1="12" y1="8" x2="12.01" y2="8"/>
+                </svg>
+                <div>
+                    Inventory items will be automatically created for each line item received. 
+                    The Form 222 will be linked to the inventory records for compliance tracking.
+                </div>
+            </div>
+            
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary btn-lg">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                        <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                    Record Receipt
+                </button>
+                <a href="{{ url_for('form222_detail', id=form222.id) }}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

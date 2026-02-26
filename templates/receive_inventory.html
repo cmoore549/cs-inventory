@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+
+{% block title %}Receive Inventory{% endblock %}
+{% block page_title %}Receive Inventory{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('inventory') }}" class="btn btn-secondary btn-sm">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+    </svg>
+    Back to Inventory
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                    <line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/>
+                </svg>
+                Receive New Inventory
+            </h3>
+        </div>
+        <div class="card-body">
+            <form method="POST" enctype="multipart/form-data" class="needs-validation">
+                <!-- Medication Selection -->
+                <div class="form-section">
+                    <h4 class="form-section-title">Medication Information</h4>
+                    
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 2;">
+                            <label for="medication_id" class="form-label required">Medication</label>
+                            <select name="medication_id" id="medication_id" class="form-control" required onchange="updateUnitType()">
+                                <option value="">Select a medication...</option>
+                                {% for med in medications %}
+                                <option value="{{ med.id }}" data-schedule="{{ med.schedule }}" data-unit="{{ med.unit or 'units' }}">
+                                    [{{ med.schedule }}] {{ med.name }} {% if med.strength %}({{ med.strength }}){% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <small class="form-text">
+                                Don't see the medication? <a href="{{ url_for('add_medication') }}">Add a new medication</a>
+                            </small>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Inventory Details -->
+                <div class="form-section">
+                    <h4 class="form-section-title">Inventory Details</h4>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="lot_number" class="form-label required">Lot Number</label>
+                            <input type="text" name="lot_number" id="lot_number" class="form-control font-mono" required
+                                   placeholder="e.g., ABC12345">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="expiration_date" class="form-label required">Expiration Date</label>
+                            <input type="date" name="expiration_date" id="expiration_date" class="form-control" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="quantity" class="form-label required">Quantity Received</label>
+                            <input type="number" name="quantity" id="quantity" class="form-control" required
+                                   min="0.01" step="0.01" placeholder="e.g., 100">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="unit_count" class="form-label">Unit Type</label>
+                            <input type="text" name="unit_count" id="unit_count" class="form-control" 
+                                   value="units" placeholder="e.g., tablets, mL, pellets" readonly>
+                            <small class="form-text text-muted">Auto-filled from medication settings</small>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="storage_location" class="form-label">Storage Location</label>
+                            <select name="storage_location" id="storage_location" class="form-control">
+                                <option value="">Select location...</option>
+                                {% for location in storage_locations %}
+                                <option value="{{ location }}">{{ location }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Supplier Information -->
+                <div class="form-section">
+                    <h4 class="form-section-title">Supplier Information</h4>
+                    
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 2;">
+                            <label for="supplier_id" class="form-label">Supplier/Distributor</label>
+                            <select name="supplier_id" id="supplier_id" class="form-control" onchange="toggleSupplierText()">
+                                <option value="">-- Select from saved suppliers --</option>
+                                {% for supplier in suppliers %}
+                                <option value="{{ supplier.id }}">
+                                    {{ supplier.name }}{% if supplier.dea_number %} (DEA: {{ supplier.dea_number }}){% endif %}
+                                </option>
+                                {% endfor %}
+                                <option value="other">-- Enter manually --</option>
+                            </select>
+                            <small class="form-text">
+                                <a href="{{ url_for('add_supplier') }}" target="_blank">+ Add new supplier</a>
+                            </small>
+                        </div>
+                        
+                        <div class="form-group" id="supplierTextGroup" style="display: none;">
+                            <label for="supplier" class="form-label">Supplier Name</label>
+                            <input type="text" name="supplier" id="supplier" class="form-control"
+                                   placeholder="e.g., McKesson, Cardinal Health">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="invoice_number" class="form-label">Invoice/PO Number</label>
+                            <input type="text" name="invoice_number" id="invoice_number" class="form-control font-mono"
+                                   placeholder="e.g., INV-12345">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="date_received" class="form-label">Date Received</label>
+                            <input type="date" name="date_received" id="date_received" class="form-control" 
+                                   value="{{ now.strftime('%Y-%m-%d') }}">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Packing Slip Upload -->
+                <div class="form-section">
+                    <h4 class="form-section-title">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/>
+                            <line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
+                        </svg>
+                        Packing Slip / Documentation
+                    </h4>
+                    
+                    <div class="upload-area" id="uploadArea">
+                        <input type="file" name="packing_slip" id="packing_slip" 
+                               accept=".pdf,.png,.jpg,.jpeg,.gif" style="display:none;">
+                        <label for="packing_slip" class="upload-label">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="36" height="36">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+                            </svg>
+                            <span class="upload-text">Click to upload or drag and drop</span>
+                            <span class="upload-hint">PDF, PNG, JPG up to 10MB</span>
+                        </label>
+                        <div id="filePreview" class="file-preview" style="display:none;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                            </svg>
+                            <span id="fileName"></span>
+                            <button type="button" id="removeFile" class="btn-icon">&times;</button>
+                        </div>
+                    </div>
+                    <small class="form-text">
+                        <strong>Recommended:</strong> Upload packing slip for DEA recordkeeping compliance. 
+                        All acquisition records must be retained for at least 2 years.
+                    </small>
+                </div>
+                
+                <!-- Notes -->
+                <div class="form-section">
+                    <div class="form-group">
+                        <label for="notes" class="form-label">Additional Notes</label>
+                        <textarea name="notes" id="notes" class="form-control" rows="3"
+                                  placeholder="Any additional notes about this shipment..."></textarea>
+                    </div>
+                </div>
+                
+                <!-- Submit -->
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                            <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+                        </svg>
+                        Receive Inventory
+                    </button>
+                    <a href="{{ url_for('inventory') }}" class="btn btn-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Update unit type when medication is selected
+function updateUnitType() {
+    const medSelect = document.getElementById('medication_id');
+    const unitInput = document.getElementById('unit_count');
+    const selectedOption = medSelect.options[medSelect.selectedIndex];
+    
+    if (selectedOption && selectedOption.dataset.unit) {
+        unitInput.value = selectedOption.dataset.unit;
+    } else {
+        unitInput.value = 'units';
+    }
+}
+
+// Supplier dropdown handling
+function toggleSupplierText() {
+    const supplierSelect = document.getElementById('supplier_id');
+    const supplierTextGroup = document.getElementById('supplierTextGroup');
+    const supplierText = document.getElementById('supplier');
+    
+    if (supplierSelect.value === 'other') {
+        supplierTextGroup.style.display = 'block';
+        supplierText.required = true;
+    } else {
+        supplierTextGroup.style.display = 'none';
+        supplierText.required = false;
+        supplierText.value = '';
+    }
+}
+
+// File upload handling
+const uploadArea = document.getElementById('uploadArea');
+const fileInput = document.getElementById('packing_slip');
+const filePreview = document.getElementById('filePreview');
+const fileName = document.getElementById('fileName');
+const removeFile = document.getElementById('removeFile');
+const uploadLabel = document.querySelector('.upload-label');
+
+fileInput.addEventListener('change', function(e) {
+    if (this.files && this.files[0]) {
+        showFile(this.files[0]);
+    }
+});
+
+uploadArea.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    this.classList.add('dragover');
+});
+
+uploadArea.addEventListener('dragleave', function() {
+    this.classList.remove('dragover');
+});
+
+uploadArea.addEventListener('drop', function(e) {
+    e.preventDefault();
+    this.classList.remove('dragover');
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        fileInput.files = e.dataTransfer.files;
+        showFile(e.dataTransfer.files[0]);
+    }
+});
+
+function showFile(file) {
+    fileName.textContent = file.name + ' (' + (file.size / 1024 / 1024).toFixed(2) + ' MB)';
+    uploadLabel.style.display = 'none';
+    filePreview.style.display = 'flex';
+}
+
+removeFile.addEventListener('click', function() {
+    fileInput.value = '';
+    uploadLabel.style.display = 'flex';
+    filePreview.style.display = 'none';
+});
+</script>
+{% endblock %}

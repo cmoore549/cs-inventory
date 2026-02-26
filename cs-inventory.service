@@ -1,0 +1,42 @@
+# Systemd Service File for CS Inventory Management System
+# Copy this file to /etc/systemd/system/cs-inventory.service
+# Then run: sudo systemctl daemon-reload && sudo systemctl enable cs-inventory
+
+[Unit]
+Description=Controlled Substance Inventory Management System
+Documentation=file:///path/to/cs-inventory/README.md
+After=network.target
+
+[Service]
+Type=notify
+User=www-data
+Group=www-data
+RuntimeDirectory=cs-inventory
+WorkingDirectory=/path/to/cs-inventory
+
+# Environment variables
+Environment="PATH=/path/to/cs-inventory/venv/bin"
+Environment="FLASK_ENV=production"
+# IMPORTANT: Generate a secure key with: python -c "import secrets; print(secrets.token_hex(32))"
+Environment="SECRET_KEY=CHANGE_THIS_TO_A_SECURE_RANDOM_KEY"
+
+# Start command
+ExecStart=/path/to/cs-inventory/venv/bin/gunicorn -c gunicorn.conf.py app:app
+
+# Restart policy
+Restart=always
+RestartSec=5
+
+# Security hardening
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/path/to/cs-inventory/instance /path/to/cs-inventory/static/uploads
+PrivateTmp=yes
+
+# Resource limits
+LimitNOFILE=65536
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target

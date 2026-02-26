@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}Audit Log{% endblock %}
+{% block page_title %}Audit Log{% endblock %}
+
+{% block content %}
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="GET" class="search-bar">
+            <div class="filter-group" style="flex-wrap: wrap;">
+                <div class="form-group" style="margin-bottom:0;">
+                    <input type="date" name="start_date" class="form-control" value="{{ start_date or '' }}" placeholder="Start Date">
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <input type="date" name="end_date" class="form-control" value="{{ end_date or '' }}" placeholder="End Date">
+                </div>
+                <select name="action" class="form-control" style="width:auto;">
+                    <option value="">All Actions</option>
+                    <option value="login" {% if action == 'login' %}selected{% endif %}>Login</option>
+                    <option value="logout" {% if action == 'logout' %}selected{% endif %}>Logout</option>
+                    <option value="dispense" {% if action == 'dispense' %}selected{% endif %}>Dispense</option>
+                    <option value="waste" {% if action == 'waste' %}selected{% endif %}>Waste</option>
+                    <option value="receive" {% if action == 'receive' %}selected{% endif %}>Receive</option>
+                    <option value="count" {% if action == 'count' %}selected{% endif %}>Count</option>
+                    <option value="verify" {% if action == 'verify' %}selected{% endif %}>Verify</option>
+                    <option value="adjust" {% if action == 'adjust' %}selected{% endif %}>Adjust</option>
+                </select>
+                <select name="user_id" class="form-control" style="width:auto;">
+                    <option value="">All Users</option>
+                    {% for user in users %}
+                    <option value="{{ user.id }}" {% if user_id == user.id|string %}selected{% endif %}>{{ user.full_name }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="btn btn-secondary">Filter</button>
+                {% if start_date or end_date or action or user_id %}
+                <a href="{{ url_for('audit_log') }}" class="btn btn-outline">Clear</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Activity Log</h3>
+        <span class="text-muted">{{ logs.total }} entries</span>
+    </div>
+    <div class="card-body">
+        {% if logs.items %}
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>User</th>
+                        <th>Action</th>
+                        <th>Details</th>
+                        <th>IP Address</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs.items %}
+                    <tr>
+                        <td class="font-mono" style="white-space:nowrap;">
+                            {{ log.timestamp.strftime('%m/%d/%Y %H:%M:%S') }}
+                        </td>
+                        <td>{{ log.user.full_name if log.user else 'System' }}</td>
+                        <td>
+                            <span class="action-badge action-{{ log.action }}">{{ log.action|title }}</span>
+                        </td>
+                        <td style="max-width: 400px;">
+                            {{ log.details }}
+                            {% if log.medication_name %}
+                            <br><small class="text-muted">Medication: {{ log.medication_name }}</small>
+                            {% endif %}
+                        </td>
+                        <td class="font-mono text-muted">{{ log.ip_address or '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        {% if logs.pages > 1 %}
+        <div class="pagination mt-3">
+            {% if logs.has_prev %}
+            <a href="{{ url_for('audit_log', page=logs.prev_num, start_date=start_date, end_date=end_date, action=action, user_id=user_id) }}" class="btn btn-outline btn-sm">&laquo; Previous</a>
+            {% endif %}
+            <span class="pagination-info">Page {{ logs.page }} of {{ logs.pages }}</span>
+            {% if logs.has_next %}
+            <a href="{{ url_for('audit_log', page=logs.next_num, start_date=start_date, end_date=end_date, action=action, user_id=user_id) }}" class="btn btn-outline btn-sm">Next &raquo;</a>
+            {% endif %}
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+            </svg>
+            <h3>No Log Entries Found</h3>
+            <p>{% if start_date or end_date or action or user_id %}Try adjusting your filters.{% else %}Activity will be logged here.{% endif %}</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+}
+.pagination-info {
+    color: var(--text-muted);
+}
+</style>
+{% endblock %}

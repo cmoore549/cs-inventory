@@ -1,0 +1,386 @@
+{% extends "base.html" %}
+
+{% block title %}Discrepancy Report{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="header-content">
+        <h1>Discrepancy Report</h1>
+        <p class="subtitle">History of inventory count discrepancies</p>
+    </div>
+    <div class="header-actions">
+        <a href="{{ url_for('reports') }}" class="btn btn-secondary">
+            <i class="icon">←</i> Back to Reports
+        </a>
+    </div>
+</div>
+
+<div class="report-container">
+    <div class="filter-card">
+        <form method="GET" action="{{ url_for('discrepancy_report') }}">
+            <div class="filter-row">
+                <div class="filter-group">
+                    <label for="start_date">Start Date</label>
+                    <input type="date" name="start_date" id="start_date" class="form-control"
+                           value="{{ start_date or '' }}">
+                </div>
+                <div class="filter-group">
+                    <label for="end_date">End Date</label>
+                    <input type="date" name="end_date" id="end_date" class="form-control"
+                           value="{{ end_date or '' }}">
+                </div>
+                <div class="filter-group">
+                    <label for="show_resolved">Include Resolved</label>
+                    <select name="show_resolved" id="show_resolved" class="form-control">
+                        <option value="false" {% if not show_resolved %}selected{% endif %}>Pending Only</option>
+                        <option value="true" {% if show_resolved %}selected{% endif %}>Include Resolved</option>
+                    </select>
+                </div>
+                <div class="filter-actions">
+                    <button type="submit" class="btn btn-primary">Apply Filters</button>
+                    <a href="{{ url_for('discrepancy_report') }}" class="btn btn-secondary">Clear</a>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <div class="summary-cards">
+        <div class="summary-card">
+            <div class="summary-icon">📊</div>
+            <div class="summary-content">
+                <span class="summary-value">{{ discrepancies|length }}</span>
+                <span class="summary-label">Total Discrepancies</span>
+            </div>
+        </div>
+        <div class="summary-card warning">
+            <div class="summary-icon">⚠️</div>
+            <div class="summary-content">
+                <span class="summary-value">{{ discrepancies|selectattr('discrepancy_resolved', 'false')|list|length }}</span>
+                <span class="summary-label">Pending Resolution</span>
+            </div>
+        </div>
+        <div class="summary-card success">
+            <div class="summary-icon">✓</div>
+            <div class="summary-content">
+                <span class="summary-value">{{ discrepancies|selectattr('discrepancy_resolved', 'true')|list|length }}</span>
+                <span class="summary-label">Resolved</span>
+            </div>
+        </div>
+        <div class="summary-card danger">
+            <div class="summary-icon">🔴</div>
+            <div class="summary-content">
+                <span class="summary-value">
+                    {{ discrepancies|selectattr('inventory_item.medication.schedule', 'equalto', 'II')|list|length }}
+                </span>
+                <span class="summary-label">Schedule II</span>
+            </div>
+        </div>
+    </div>
+
+    {% if discrepancies %}
+    <div class="report-card">
+        <div class="card-header">
+            <h3>Discrepancy Details</h3>
+            <button class="btn btn-secondary btn-sm" onclick="window.print()">
+                <i class="icon">🖨️</i> Print Report
+            </button>
+        </div>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Medication</th>
+                    <th>Schedule</th>
+                    <th>Lot #</th>
+                    <th>Expected</th>
+                    <th>Actual</th>
+                    <th>Variance</th>
+                    <th>Counted By</th>
+                    <th>Status</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in discrepancies %}
+                <tr class="{% if not d.discrepancy_resolved %}pending-row{% endif %}">
+                    <td>{{ d.physical_inventory.inventory_date.strftime('%m/%d/%Y') }}</td>
+                    <td>
+                        {% if d.inventory_item %}
+                        <strong>{{ d.inventory_item.medication.name }}</strong>
+                        {% if d.inventory_item.medication.strength %}<br><small class="text-muted">{{ d.inventory_item.medication.strength }}</small>{% endif %}
+                        {% elif d.patient_medication %}
+                        <strong>{{ d.patient_medication.medication.name }}</strong>
+                        {% if d.patient_medication.medication.strength %}<br><small class="text-muted">{{ d.patient_medication.medication.strength }}</small>{% endif %}
+                        <br><small class="text-info">Patient: {{ d.patient_medication.patient.full_name }}</small>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if d.inventory_item %}
+                        <span class="schedule-badge schedule-{{ d.inventory_item.medication.schedule|lower }}">
+                            {{ d.inventory_item.medication.schedule }}
+                        </span>
+                        {% elif d.patient_medication %}
+                        <span class="schedule-badge schedule-{{ d.patient_medication.medication.schedule|lower }}">
+                            {{ d.patient_medication.medication.schedule }}
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if d.inventory_item %}{{ d.inventory_item.lot_number or '-' }}
+                        {% elif d.patient_medication %}{{ d.patient_medication.lot_number or '-' }}
+                        {% endif %}
+                    </td>
+                    {% if d.inventory_item %}
+                        {% set unit = d.inventory_item.unit_count or d.inventory_item.medication.unit or 'units' %}
+                    {% elif d.patient_medication %}
+                        {% set unit = d.patient_medication.unit or 'units' %}
+                    {% else %}
+                        {% set unit = 'units' %}
+                    {% endif %}
+                    <td class="text-center font-mono">{{ d.expected_quantity }} {{ unit }}</td>
+                    <td class="text-center font-mono">{{ d.actual_quantity }} {{ unit }}</td>
+                    <td class="text-center">
+                        <span class="discrepancy-value {% if d.discrepancy < 0 %}negative{% else %}positive{% endif %}">
+                            {% if d.discrepancy > 0 %}+{% endif %}{{ d.discrepancy }} {{ unit }}
+                        </span>
+                    </td>
+                    <td>{{ d.counter.full_name if d.counter else '-' }}</td>
+                    <td>
+                        {% if d.discrepancy_resolved %}
+                        <span class="status-badge status-success">Resolved</span>
+                        {% else %}
+                        <span class="status-badge status-warning">Pending</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if d.discrepancy_resolved %}
+                        <span class="resolution-preview text-muted" title="{{ d.resolution_notes }}">
+                            {{ d.resolution_notes[:20] if d.resolution_notes else '-' }}{% if d.resolution_notes and d.resolution_notes|length > 20 %}...{% endif %}
+                        </span>
+                        {% else %}
+                        <a href="{{ url_for('resolve_discrepancy', id=d.id) }}" class="btn btn-warning btn-sm">
+                            Resolve
+                        </a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <span class="empty-icon">✓</span>
+        <h3>No Discrepancies Found</h3>
+        <p>No inventory discrepancies match your filter criteria.</p>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.report-container {
+    max-width: 1400px;
+}
+
+.filter-card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.filter-row {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    align-items: flex-end;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.filter-group label {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #6c757d;
+}
+
+.filter-group input,
+.filter-group select {
+    padding: 0.5rem;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 0.9rem;
+}
+
+.filter-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-left: auto;
+}
+
+.summary-cards {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+@media (max-width: 900px) {
+    .summary-cards {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.summary-card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.summary-card.warning {
+    border-left: 4px solid #ffc107;
+}
+
+.summary-card.success {
+    border-left: 4px solid #28a745;
+}
+
+.summary-card.danger {
+    border-left: 4px solid #dc3545;
+}
+
+.summary-icon {
+    font-size: 2rem;
+}
+
+.summary-content {
+    display: flex;
+    flex-direction: column;
+}
+
+.summary-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.summary-label {
+    font-size: 0.85rem;
+    color: #6c757d;
+}
+
+.report-card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.5rem;
+    background: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.card-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+.pending-row {
+    background-color: #fff8e6 !important;
+}
+
+.discrepancy-value {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-weight: 600;
+}
+
+.discrepancy-value.negative {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.discrepancy-value.positive {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.status-badge.resolved {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-badge.pending {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.resolution-preview {
+    font-size: 0.85rem;
+    color: #6c757d;
+    cursor: help;
+}
+
+.btn-xs {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.8rem;
+}
+
+.empty-state {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 3rem;
+    text-align: center;
+}
+
+.empty-icon {
+    font-size: 3rem;
+    display: block;
+    margin-bottom: 1rem;
+}
+
+.empty-state h3 {
+    margin: 0 0 0.5rem 0;
+    color: #28a745;
+}
+
+.empty-state p {
+    color: #6c757d;
+    margin: 0;
+}
+
+@media print {
+    .filter-card, .card-header button {
+        display: none;
+    }
+    
+    .summary-cards {
+        page-break-after: always;
+    }
+}
+</style>
+{% endblock %}

@@ -1,0 +1,256 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Users{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="header-content">
+        <h1>Manage Users</h1>
+        <p class="subtitle">Add, edit, and manage user accounts</p>
+    </div>
+    <div class="header-actions">
+        <a href="{{ url_for('add_user') }}" class="btn btn-primary">
+            <i class="icon">+</i> Add User
+        </a>
+        <a href="{{ url_for('settings') }}" class="btn btn-secondary">
+            <i class="icon">←</i> Back to Settings
+        </a>
+    </div>
+</div>
+
+<div class="users-container">
+    <div class="users-card">
+        {% if users %}
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Username</th>
+                    <th>Role</th>
+                    <th>DEA Number</th>
+                    <th>Status</th>
+                    <th>Last Login</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user in users %}
+                <tr>
+                    <td>
+                        <strong>{{ user.full_name }}</strong>
+                        {% if user.id == current_user.id %}
+                        <span class="badge-you">(You)</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ user.username }}</td>
+                    <td>
+                        <span class="role-badge role-{{ user.role }}">
+                            {{ user.role|title }}
+                        </span>
+                    </td>
+                    <td>{{ user.dea_number or '-' }}</td>
+                    <td>
+                        {% if user.is_active %}
+                        <span class="status-badge active">Active</span>
+                        {% else %}
+                        <span class="status-badge inactive">Inactive</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {{ user.last_login.strftime('%m/%d/%Y %I:%M %p') if user.last_login else 'Never' }}
+                    </td>
+                    <td>
+                        <div class="action-buttons">
+                            <a href="{{ url_for('edit_user', id=user.id) }}" class="btn btn-secondary btn-sm">
+                                Edit
+                            </a>
+                            {% if user.id != current_user.id %}
+                            <form method="POST" action="{{ url_for('toggle_user', id=user.id) }}" style="display: inline;">
+                                {% if user.is_active %}
+                                <button type="submit" class="btn btn-warning btn-sm" 
+                                        onclick="return confirm('Deactivate this user?');">
+                                    Deactivate
+                                </button>
+                                {% else %}
+                                <button type="submit" class="btn btn-success btn-sm">
+                                    Activate
+                                </button>
+                                {% endif %}
+                            </form>
+                            {% endif %}
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">
+            <span class="empty-icon">👤</span>
+            <h3>No Users Found</h3>
+            <p>Add users to allow them to access the system.</p>
+            <a href="{{ url_for('add_user') }}" class="btn btn-primary">Add First User</a>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="info-panel">
+        <h3>User Roles</h3>
+        
+        <div class="role-info">
+            <h4><span class="role-badge role-admin">Admin</span></h4>
+            <p>Full system access including user management, settings, and all inventory operations.</p>
+        </div>
+
+        <div class="role-info">
+            <h4><span class="role-badge role-provider">Provider</span></h4>
+            <p>Can dispense, waste, and perform daily counts. Can view reports and act as prescriber.</p>
+        </div>
+
+        <div class="role-info">
+            <h4><span class="role-badge role-staff">Staff</span></h4>
+            <p>Can receive inventory, perform daily counts, and act as witness for wasting.</p>
+        </div>
+
+        <hr>
+
+        <h3>DEA Numbers</h3>
+        <p class="text-muted">
+            Providers who prescribe controlled substances must have their DEA number on file. 
+            This is used when recording dispensing transactions.
+        </p>
+    </div>
+</div>
+
+<style>
+.users-container {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 1.5rem;
+}
+
+@media (max-width: 1000px) {
+    .users-container {
+        grid-template-columns: 1fr;
+    }
+}
+
+.users-card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
+
+.badge-you {
+    font-size: 0.75rem;
+    color: #1e4d6b;
+    font-weight: normal;
+}
+
+.role-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.role-badge.role-admin {
+    background: #7c3aed;
+    color: white;
+}
+
+.role-badge.role-provider {
+    background: #1e4d6b;
+    color: white;
+}
+
+.role-badge.role-staff {
+    background: #6c757d;
+    color: white;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.status-badge.active {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-badge.inactive {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn-sm {
+    padding: 0.35rem 0.75rem;
+    font-size: 0.85rem;
+}
+
+.info-panel {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 1.5rem;
+    height: fit-content;
+}
+
+.info-panel h3 {
+    margin: 0 0 1rem 0;
+    font-size: 1rem;
+    color: #1e4d6b;
+}
+
+.role-info {
+    margin-bottom: 1rem;
+}
+
+.role-info h4 {
+    margin: 0 0 0.25rem 0;
+}
+
+.role-info p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #6c757d;
+}
+
+.info-panel hr {
+    border: none;
+    border-top: 1px solid #e9ecef;
+    margin: 1.5rem 0;
+}
+
+.empty-state {
+    padding: 3rem;
+    text-align: center;
+}
+
+.empty-icon {
+    font-size: 3rem;
+    display: block;
+    margin-bottom: 1rem;
+}
+
+.empty-state h3 {
+    margin: 0 0 0.5rem 0;
+}
+
+.empty-state p {
+    color: #6c757d;
+    margin-bottom: 1rem;
+}
+</style>
+{% endblock %}

@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Edit User' if user else 'Add User' }}{% endblock %}
+{% block page_title %}{{ 'Edit User' if user else 'Add New User' }}{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('manage_users') }}" class="btn btn-secondary btn-sm">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+    </svg>
+    Back to Users
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+            </svg>
+            {{ 'Edit User Account' if user else 'New User Account' }}
+        </h3>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('edit_user', id=user.id) if user else url_for('add_user') }}">
+            <!-- Account Information -->
+            <div class="form-section">
+                <h4 class="form-section-title">Account Information</h4>
+                
+                <div class="form-row">
+                    <div class="form-group" style="flex: 1;">
+                        <label for="username" class="form-label required">Username</label>
+                        <input type="text" name="username" id="username" class="form-control" 
+                               value="{{ user.username if user else '' }}"
+                               placeholder="Enter username"
+                               {% if user %}readonly style="background: #f5f5f5;"{% endif %}
+                               required>
+                        {% if user %}
+                        <small class="form-help">Username cannot be changed after creation.</small>
+                        {% else %}
+                        <small class="form-help">Will be converted to lowercase automatically.</small>
+                        {% endif %}
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label for="full_name" class="form-label required">Full Name</label>
+                        <input type="text" name="full_name" id="full_name" class="form-control" 
+                               value="{{ user.full_name if user else '' }}"
+                               placeholder="e.g., John Smith"
+                               required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group" style="flex: 1;">
+                        <label for="role" class="form-label required">Role</label>
+                        <select name="role" id="role" class="form-control" required>
+                            <option value="">Select role...</option>
+                            <option value="admin" {% if user and user.role == 'admin' %}selected{% endif %}>
+                                Admin - Full system access
+                            </option>
+                            <option value="provider" {% if user and user.role == 'provider' %}selected{% endif %}>
+                                Provider - Dispensing and clinical operations
+                            </option>
+                            <option value="staff" {% if user and user.role == 'staff' %}selected{% endif %}>
+                                Staff - Inventory and daily counts
+                            </option>
+                        </select>
+                    </div>
+                    {% if user %}
+                    <div class="form-group" style="flex: 1;">
+                        <label for="is_active" class="form-label">Account Status</label>
+                        <select name="is_active" id="is_active" class="form-control">
+                            <option value="yes" {% if user.is_active %}selected{% endif %}>Active</option>
+                            <option value="no" {% if not user.is_active %}selected{% endif %}>Inactive</option>
+                        </select>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Password -->
+            <div class="form-section">
+                <h4 class="form-section-title">Password</h4>
+                {% if user %}
+                <p class="text-muted mb-2">Leave blank to keep current password.</p>
+                {% endif %}
+                
+                <div class="form-row">
+                    <div class="form-group" style="flex: 1;">
+                        <label for="password" class="form-label {% if not user %}required{% endif %}">
+                            {{ 'New Password' if user else 'Password' }}
+                        </label>
+                        <input type="password" name="{{ 'new_password' if user else 'password' }}" id="password" 
+                               class="form-control" 
+                               placeholder="Enter password"
+                               {% if not user %}required{% endif %}
+                               minlength="8">
+                        <small class="form-help">Minimum 8 characters.</small>
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label for="password_confirm" class="form-label {% if not user %}required{% endif %}">
+                            Confirm Password
+                        </label>
+                        <input type="password" name="password_confirm" id="password_confirm" 
+                               class="form-control" 
+                               placeholder="Confirm password"
+                               {% if not user %}required{% endif %}>
+                    </div>
+                </div>
+                
+                {% if not user %}
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="checkbox-label" style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                            <input type="checkbox" name="must_change_password" id="must_change_password" checked>
+                            <span>Require password change on first login</span>
+                        </label>
+                        <small class="form-help" style="margin-left: 1.5rem;">
+                            Recommended for security. User will be prompted to create their own password when they first log in.
+                        </small>
+                    </div>
+                </div>
+                {% else %}
+                {% if user.must_change_password %}
+                <div class="form-row">
+                    <div class="form-group">
+                        <div class="alert alert-warning" style="margin: 0;">
+                            <strong>Note:</strong> This user is required to change their password on next login.
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                {% endif %}
+            </div>
+
+            <!-- Professional Information -->
+            <div class="form-section">
+                <h4 class="form-section-title">Professional Information</h4>
+                <p class="text-muted mb-2">Optional. Required for providers who prescribe controlled substances.</p>
+                
+                <div class="form-row">
+                    <div class="form-group" style="flex: 1;">
+                        <label for="credentials" class="form-label">Credentials/Title</label>
+                        <input type="text" name="credentials" id="credentials" class="form-control" 
+                               value="{{ user.credentials if user else '' }}"
+                               placeholder="e.g., MD, DO, NP-C, PA-C, RN">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label for="dea_number" class="form-label">DEA Number</label>
+                        <input type="text" name="dea_number" id="dea_number" class="form-control" 
+                               value="{{ user.dea_number if user else '' }}"
+                               placeholder="e.g., AB1234567"
+                               pattern="[A-Za-z]{2}[0-9]{7}"
+                               style="text-transform: uppercase;">
+                        <small class="form-help">Format: 2 letters followed by 7 digits</small>
+                    </div>
+                </div>
+            </div>
+
+            {% if user %}
+            <!-- Account Details (Edit Mode Only) -->
+            <div class="form-section">
+                <h4 class="form-section-title">Account Details</h4>
+                <div class="info-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
+                    <div class="info-item">
+                        <label class="text-muted" style="font-size: 0.85rem;">Created</label>
+                        <span>{{ user.created_at.strftime('%m/%d/%Y at %I:%M %p') if user.created_at else 'N/A' }}</span>
+                    </div>
+                    <div class="info-item">
+                        <label class="text-muted" style="font-size: 0.85rem;">Last Login</label>
+                        <span>{{ user.last_login.strftime('%m/%d/%Y at %I:%M %p') if user.last_login else 'Never' }}</span>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Form Actions -->
+            <div class="form-actions" style="display: flex; gap: 1rem; justify-content: flex-end; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--gray-200);">
+                <a href="{{ url_for('manage_users') }}" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-primary">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                        <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+                    </svg>
+                    {{ 'Update User' if user else 'Create User' }}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// Password confirmation validation
+document.querySelector('form').addEventListener('submit', function(e) {
+    const password = document.getElementById('password').value;
+    const confirm = document.getElementById('password_confirm').value;
+    
+    if (password && password !== confirm) {
+        e.preventDefault();
+        alert('Passwords do not match.');
+        document.getElementById('password_confirm').focus();
+    }
+});
+</script>
+{% endblock %}

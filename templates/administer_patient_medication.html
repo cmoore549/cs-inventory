@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+
+{% block title %}Administer - {{ patient_med.patient_name }}{% endblock %}
+{% block page_title %}Administer Patient Medication{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">
+            <span class="schedule-badge schedule-{{ patient_med.medication.schedule|lower }}">{{ patient_med.medication.schedule }}</span>
+            {{ patient_med.medication.name }}
+        </h3>
+        <span class="quantity-display quantity-ok">{{ patient_med.quantity_remaining }} {{ patient_med.unit }} remaining</span>
+    </div>
+    <div class="card-body">
+        <div class="patient-info-bar mb-3">
+            <strong>Patient:</strong> {{ patient_med.patient_name }} 
+            <span class="text-muted">| DOB: {{ patient_med.patient_dob.strftime('%m/%d/%Y') }}</span>
+            {% if patient_med.patient_mrn %}<span class="text-muted">| MRN: {{ patient_med.patient_mrn }}</span>{% endif %}
+        </div>
+        
+        <form method="POST">
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="required">Quantity to Administer</label>
+                    <input type="number" name="quantity" class="form-control" required 
+                           min="0.01" max="{{ patient_med.quantity_remaining }}" step="0.01" autofocus>
+                    <small class="text-muted">{{ patient_med.unit }} (max: {{ patient_med.quantity_remaining }})</small>
+                </div>
+                <div class="form-group">
+                    <label>Witness</label>
+                    <select name="witness_id" class="form-control">
+                        <option value="">-- No Witness --</option>
+                        {% for user in users %}
+                        {% if user.id != session['user_id'] %}
+                        <option value="{{ user.id }}">{{ user.full_name }}{% if user.credentials %} ({{ user.credentials }}){% endif %}</option>
+                        {% endif %}
+                        {% endfor %}
+                    </select>
+                    <small class="text-muted">Recommended for Schedule II</small>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label>Notes</label>
+                <textarea name="notes" class="form-control" rows="2" placeholder="Administration notes (optional)"></textarea>
+            </div>
+            
+            <div class="form-actions">
+                <a href="{{ url_for('patient_medication_detail', id=patient_med.id) }}" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-primary">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                        <polyline points="22 4 12 14.01 9 11.01"/>
+                    </svg>
+                    Record Administration
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.patient-info-bar {
+    padding: 0.75rem 1rem;
+    background: var(--bg-dark);
+    border-radius: var(--radius);
+}
+</style>
+{% endblock %}

@@ -1,0 +1,153 @@
+{% extends "base.html" %}
+
+{% block title %}{% if supplier %}Edit{% else %}Add{% endif %} Supplier{% endblock %}
+{% block page_title %}{% if supplier %}Edit{% else %}Add{% endif %} Supplier{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('suppliers') }}" class="btn btn-secondary btn-sm">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+    </svg>
+    Back to Suppliers
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <div class="card">
+        <div class="card-body">
+            <form method="POST">
+                <div class="form-section">
+                    <h4 class="form-section-title">Supplier Information</h4>
+                    
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 2;">
+                            <label for="name" class="form-label required">Supplier Name</label>
+                            <input type="text" name="name" id="name" class="form-control" required
+                                   value="{{ supplier.name if supplier else '' }}"
+                                   placeholder="e.g., McKesson, Cardinal Health">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="dea_number" class="form-label">DEA Number</label>
+                            <input type="text" name="dea_number" id="dea_number" class="form-control font-mono"
+                                   value="{{ supplier.dea_number if supplier and supplier.dea_number else '' }}"
+                                   placeholder="e.g., AB1234567" maxlength="9" style="text-transform: uppercase;">
+                            <small class="form-text text-muted">Optional - 9-character DEA registration number</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-section">
+                    <h4 class="form-section-title">Address</h4>
+                    
+                    <div class="form-group">
+                        <label for="address" class="form-label">Street Address</label>
+                        <input type="text" name="address" id="address" class="form-control"
+                               value="{{ supplier.address if supplier else '' }}">
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 2;">
+                            <label for="city" class="form-label">City</label>
+                            <input type="text" name="city" id="city" class="form-control"
+                                   value="{{ supplier.city if supplier else '' }}">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="state" class="form-label">State</label>
+                            <input type="text" name="state" id="state" class="form-control"
+                                   value="{{ supplier.state if supplier else '' }}" maxlength="2"
+                                   placeholder="NC" style="text-transform: uppercase;">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="zip_code" class="form-label">ZIP Code</label>
+                            <input type="text" name="zip_code" id="zip_code" class="form-control"
+                                   value="{{ supplier.zip_code if supplier else '' }}" maxlength="10">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-section">
+                    <h4 class="form-section-title">Contact Information</h4>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="phone" class="form-label">Phone</label>
+                            <input type="tel" name="phone" id="phone" class="form-control"
+                                   value="{{ supplier.phone if supplier else '' }}"
+                                   placeholder="(555) 555-5555">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="fax" class="form-label">Fax</label>
+                            <input type="tel" name="fax" id="fax" class="form-control"
+                                   value="{{ supplier.fax if supplier else '' }}"
+                                   placeholder="(555) 555-5555">
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="email" class="form-label">Email</label>
+                            <input type="email" name="email" id="email" class="form-control"
+                                   value="{{ supplier.email if supplier else '' }}">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="contact_name" class="form-label">Contact Name</label>
+                            <input type="text" name="contact_name" id="contact_name" class="form-control"
+                                   value="{{ supplier.contact_name if supplier else '' }}">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-section">
+                    <h4 class="form-section-title">Account Details</h4>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="account_number" class="form-label">Account Number</label>
+                            <input type="text" name="account_number" id="account_number" class="form-control"
+                                   value="{{ supplier.account_number if supplier else '' }}">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="notes" class="form-label">Notes</label>
+                        <textarea name="notes" id="notes" class="form-control" rows="2">{{ supplier.notes if supplier else '' }}</textarea>
+                    </div>
+                    
+                    {% if supplier %}
+                    <div class="form-group">
+                        <label class="form-label">Status</label>
+                        <div class="form-row">
+                            <label class="radio-label">
+                                <input type="radio" name="is_active" value="yes" {% if supplier.is_active %}checked{% endif %}>
+                                <span>Active</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="is_active" value="no" {% if not supplier.is_active %}checked{% endif %}>
+                                <span>Inactive</span>
+                            </label>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                            <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+                        </svg>
+                        {% if supplier %}Update{% else %}Add{% endif %} Supplier
+                    </button>
+                    <a href="{{ url_for('suppliers') }}" class="btn btn-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

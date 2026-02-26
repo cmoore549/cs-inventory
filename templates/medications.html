@@ -1,0 +1,243 @@
+{% extends "base.html" %}
+
+{% block title %}Medication Formulary{% endblock %}
+{% block page_title %}Medication Formulary{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('add_medication') }}" class="btn btn-primary btn-sm">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+    </svg>
+    Add Medication
+</a>
+{% endblock %}
+
+{% block content %}
+<p class="text-muted mb-3">Master list of controlled substances approved for your practice. Configure stock thresholds and reorder points here.</p>
+
+<!-- Search & Filters -->
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="GET" class="search-bar">
+            <div class="search-input-wrapper">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" name="search" class="form-control" placeholder="Search by name, generic name, or NDC..." value="{{ search }}">
+            </div>
+            <div class="filter-group">
+                <select name="schedule" class="form-control" style="width:auto;">
+                    <option value="">All Schedules</option>
+                    <option value="II" {% if schedule_filter == 'II' %}selected{% endif %}>Schedule II</option>
+                    <option value="III" {% if schedule_filter == 'III' %}selected{% endif %}>Schedule III</option>
+                    <option value="IV" {% if schedule_filter == 'IV' %}selected{% endif %}>Schedule IV</option>
+                    <option value="V" {% if schedule_filter == 'V' %}selected{% endif %}>Schedule V</option>
+                </select>
+                <button type="submit" class="btn btn-secondary">Filter</button>
+                {% if search or schedule_filter %}
+                <a href="{{ url_for('medications') }}" class="btn btn-outline">Clear</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Summary Stats -->
+<div class="stats-row mb-3">
+    <div class="stat-pill">
+        <span class="stat-pill-value">{{ medications|length }}</span>
+        <span class="stat-pill-label">Total Medications</span>
+    </div>
+    <div class="stat-pill">
+        <span class="stat-pill-value">{{ medications|selectattr('schedule', 'equalto', 'II')|list|length }}</span>
+        <span class="stat-pill-label">Schedule II</span>
+    </div>
+    <div class="stat-pill">
+        <span class="stat-pill-value">{{ medications|rejectattr('schedule', 'equalto', 'II')|list|length }}</span>
+        <span class="stat-pill-label">Schedule III-V</span>
+    </div>
+    <div class="stat-pill stat-pill-warning">
+        <span class="stat-pill-value">{{ low_stock_count }}</span>
+        <span class="stat-pill-label">Low Stock</span>
+    </div>
+</div>
+
+<!-- Medications List -->
+<div class="card">
+    <div class="card-body">
+        {% if medications %}
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Schedule</th>
+                        <th>Medication</th>
+                        <th>Strength / Form</th>
+                        <th>NDC</th>
+                        <th class="text-center">Stock Level</th>
+                        <th class="text-center">Low Threshold</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for med in medications %}
+                    <tr class="{% if med.is_low_stock and not med.patient_inventory_only %}row-warning{% endif %}{% if med.patient_inventory_only %} patient-only-row{% endif %}">
+                        <td>
+                            <span class="schedule-badge schedule-{{ med.schedule|lower }}">{{ med.schedule }}</span>
+                        </td>
+                        <td>
+                            <strong>{{ med.name }}</strong>
+                            {% if med.patient_inventory_only %}
+                            <span class="patient-only-badge">Patient Only</span>
+                            {% endif %}
+                            {% if med.generic_name %}
+                            <br><small class="text-muted">{{ med.generic_name }}</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {{ med.strength or '-' }}
+                            {% if med.form %}<br><small class="text-muted">{{ med.form }}</small>{% endif %}
+                        </td>
+                        <td class="font-mono">{{ med.ndc or '-' }}</td>
+                        <td class="text-center">
+                            {% set total_qty = med.total_quantity %}
+                            {% if total_qty > 0 %}
+                                {% if med.is_low_stock %}
+                                <span class="quantity-badge quantity-low">{{ '%g'|format(total_qty) }}</span>
+                                {% else %}
+                                <span class="quantity-badge quantity-ok">{{ '%g'|format(total_qty) }}</span>
+                                {% endif %}
+                            {% else %}
+                            <span class="quantity-badge quantity-zero">0</span>
+                            {% endif %}
+                            <small class="text-muted">{{ med.unit or 'units' }}</small>
+                        </td>
+                        <td class="text-center font-mono">
+                            {{ med.low_stock_threshold or 10 }}
+                        </td>
+                        <td>
+                            <div class="btn-group">
+                                <a href="{{ url_for('medication_detail', id=med.id) }}" class="btn btn-outline btn-sm" title="View Details">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                        <circle cx="12" cy="12" r="3"/>
+                                    </svg>
+                                </a>
+                                <a href="{{ url_for('edit_medication', id=med.id) }}" class="btn btn-outline btn-sm" title="Edit">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                                    </svg>
+                                </a>
+                                <a href="{{ url_for('receive_inventory') }}?medication_id={{ med.id }}" class="btn btn-outline btn-sm btn-success-outline" title="Receive Inventory">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                                        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                                    </svg>
+                                </a>
+                                {% if current_user.role == 'admin' %}
+                                <form method="POST" action="{{ url_for('delete_medication', id=med.id) }}" style="display:inline;" 
+                                      onsubmit="return confirm('Delete {{ med.name }}? This will deactivate or permanently remove this medication from the formulary.');">
+                                    <button type="submit" class="btn btn-outline btn-sm btn-danger-outline" title="Delete">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                                            <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                        </svg>
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <svg viewBox="-1 -1 26 26" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48">
+                <path d="M19.5 12.5L12 20a4.82 4.82 0 0 1-7 0 4.82 4.82 0 0 1 0-7l7.5-7.5a4.82 4.82 0 0 1 7 0 4.82 4.82 0 0 1 0 7z"/>
+                <line x1="8.5" y1="15.5" x2="15.5" y2="8.5"/>
+            </svg>
+            <h3>No Medications Found</h3>
+            <p>{% if search or schedule_filter %}Try adjusting your filters or {% endif %}<a href="{{ url_for('add_medication') }}">add a new medication</a> to your formulary.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.stats-row {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+.stat-pill {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 2rem;
+    padding: 0.5rem 1rem;
+}
+.stat-pill-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--primary);
+}
+.stat-pill-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+.stat-pill-warning .stat-pill-value {
+    color: var(--warning);
+}
+
+.quantity-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    font-family: var(--font-mono);
+}
+.quantity-ok {
+    background: rgba(45, 122, 79, 0.15);
+    color: var(--success);
+}
+.quantity-low {
+    background: rgba(181, 137, 0, 0.15);
+    color: var(--warning);
+}
+.quantity-zero {
+    background: rgba(185, 28, 28, 0.15);
+    color: var(--danger);
+}
+
+.row-warning {
+    background: rgba(181, 137, 0, 0.05);
+}
+
+.patient-only-row {
+    background: rgba(111, 66, 193, 0.05);
+}
+
+.patient-only-badge {
+    display: inline-block;
+    padding: 0.15rem 0.4rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    background: rgba(111, 66, 193, 0.15);
+    color: #6f42c1;
+    margin-left: 0.5rem;
+    vertical-align: middle;
+}
+
+.btn-success-outline {
+    color: var(--success);
+    border-color: var(--success);
+}
+.btn-success-outline:hover {
+    background: var(--success);
+    color: white;
+}
+</style>
+{% endblock %}

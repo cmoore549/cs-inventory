@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block title %}{% if form222 %}Edit{% else %}New{% endif %} Form 222{% endblock %}
+{% block page_title %}{% if form222 %}Edit{% else %}New{% endif %} DEA Form 222{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('form222_list') }}" class="btn btn-secondary btn-sm">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+    </svg>
+    Back to Form 222 List
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <div class="card">
+        <div class="card-body">
+            <form method="POST" id="form222Form">
+                <div class="form-section">
+                    <h4 class="form-section-title">Form Information</h4>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="form_number" class="form-label required">Form 222 Number</label>
+                            <input type="text" name="form_number" id="form_number" class="form-control font-mono" required
+                                   value="{{ form222.form_number if form222 else '' }}"
+                                   placeholder="Enter form number" style="text-transform: uppercase;">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="order_date" class="form-label required">Order Date</label>
+                            <input type="date" name="order_date" id="order_date" class="form-control" required
+                                   value="{{ form222.order_date.strftime('%Y-%m-%d') if form222 else now.strftime('%Y-%m-%d') }}">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="supplier_id" class="form-label required">Supplier</label>
+                        <select name="supplier_id" id="supplier_id" class="form-control" required>
+                            <option value="">-- Select Supplier --</option>
+                            {% for supplier in suppliers %}
+                            <option value="{{ supplier.id }}" {% if form222 and form222.supplier_id == supplier.id %}selected{% endif %}>
+                                {{ supplier.name }} (DEA: {{ supplier.dea_number }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                        {% if not suppliers %}
+                        <small class="form-text text-danger">No suppliers configured. <a href="{{ url_for('add_supplier') }}">Add a supplier</a> first.</small>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="form-section">
+                    <h4 class="form-section-title">Line Items (Schedule II Only)</h4>
+                    
+                    <div id="lineItems">
+                        <div class="line-item-row" data-line="1">
+                            <div class="form-row" style="align-items: flex-end;">
+                                <div class="form-group" style="flex: 2;">
+                                    <label class="form-label">Line 1 - Medication</label>
+                                    <select name="medication_id_1" class="form-control">
+                                        <option value="">-- Select Medication --</option>
+                                        {% for med in medications %}
+                                        <option value="{{ med.id }}">{{ med.name }} {% if med.strength %}({{ med.strength }}){% endif %}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="form-group" style="flex: 1;">
+                                    <label class="form-label">Quantity</label>
+                                    <input type="number" name="quantity_1" class="form-control" min="0" step="1">
+                                </div>
+                                <div class="form-group" style="flex: 0;">
+                                    <button type="button" class="btn btn-outline btn-danger-outline" onclick="removeLine(1)" style="padding: 0.5rem;">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                                            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button type="button" class="btn btn-outline mt-2" onclick="addLine()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                            <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                        </svg>
+                        Add Line Item
+                    </button>
+                </div>
+                
+                <div class="form-section">
+                    <div class="form-group">
+                        <label for="notes" class="form-label">Notes</label>
+                        <textarea name="notes" id="notes" class="form-control" rows="2">{{ form222.notes if form222 else '' }}</textarea>
+                    </div>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                            <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+                        </svg>
+                        {% if form222 %}Update{% else %}Create{% endif %} Form 222
+                    </button>
+                    <a href="{{ url_for('form222_list') }}" class="btn btn-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+let lineCount = 1;
+const medications = {{ medications|tojson|safe if medications else '[]' }};
+
+function addLine() {
+    lineCount++;
+    const container = document.getElementById('lineItems');
+    
+    let medOptions = '<option value="">-- Select Medication --</option>';
+    {% for med in medications %}
+    medOptions += '<option value="{{ med.id }}">{{ med.name }} {% if med.strength %}({{ med.strength }}){% endif %}</option>';
+    {% endfor %}
+    
+    const html = `
+        <div class="line-item-row" data-line="${lineCount}">
+            <div class="form-row" style="align-items: flex-end;">
+                <div class="form-group" style="flex: 2;">
+                    <label class="form-label">Line ${lineCount} - Medication</label>
+                    <select name="medication_id_${lineCount}" class="form-control">
+                        ${medOptions}
+                    </select>
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <label class="form-label">Quantity</label>
+                    <input type="number" name="quantity_${lineCount}" class="form-control" min="0" step="1">
+                </div>
+                <div class="form-group" style="flex: 0;">
+                    <button type="button" class="btn btn-outline btn-danger-outline" onclick="removeLine(${lineCount})" style="padding: 0.5rem;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    container.insertAdjacentHTML('beforeend', html);
+}
+
+function removeLine(lineNum) {
+    const row = document.querySelector(`.line-item-row[data-line="${lineNum}"]`);
+    if (row && document.querySelectorAll('.line-item-row').length > 1) {
+        row.remove();
+    }
+}
+</script>
+
+<style>
+.line-item-row {
+    padding: var(--spacing-sm) 0;
+    border-bottom: 1px solid var(--border);
+}
+.line-item-row:last-child {
+    border-bottom: none;
+}
+</style>
+{% endblock %}

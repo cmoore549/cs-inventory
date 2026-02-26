@@ -1,0 +1,350 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Document{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="header-content">
+        <h1>Upload Document</h1>
+        <p class="subtitle">Store packing slips, DEA forms, and other controlled substance documentation</p>
+    </div>
+    <div class="header-actions">
+        <a href="{{ url_for('documents') }}" class="btn btn-secondary">
+            <i class="icon">←</i> Back to Documents
+        </a>
+    </div>
+</div>
+
+<div class="upload-container">
+    <div class="upload-form-card">
+        <form method="POST" action="{{ url_for('upload_document') }}" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="document_type">Document Type *</label>
+                <select name="document_type" id="document_type" required>
+                    <option value="">-- Select Document Type --</option>
+                    <option value="packing_slip">Packing Slip / Invoice</option>
+                    <option value="dea_form">DEA Form (222, 106, etc.)</option>
+                    <option value="invoice">Purchase Invoice</option>
+                    <option value="destruction">Destruction/Disposal Record</option>
+                    <option value="transfer">Transfer Documentation</option>
+                    <option value="registration">Registration Certificate</option>
+                    <option value="other">Other Documentation</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="description">Description</label>
+                <input type="text" name="description" id="description" 
+                       placeholder="Brief description of the document...">
+            </div>
+
+            <div class="form-group">
+                <label for="related_medication">Related Medication (Optional)</label>
+                <select name="related_medication" id="related_medication">
+                    <option value="">-- Not Medication Specific --</option>
+                    <!-- Medications would be populated dynamically -->
+                </select>
+                <small class="form-help">If this document relates to a specific medication, select it here.</small>
+            </div>
+
+            <div class="form-group">
+                <label for="document">Select File *</label>
+                <div class="file-upload-area" id="upload-area">
+                    <input type="file" name="document" id="document" required 
+                           accept=".pdf,.png,.jpg,.jpeg,.gif,.doc,.docx,.xls,.xlsx">
+                    <div class="upload-placeholder">
+                        <span class="upload-icon">📄</span>
+                        <span class="upload-text">Click to select a file or drag and drop</span>
+                        <span class="upload-hint">PDF, Images, Word, or Excel files (Max 16MB)</span>
+                    </div>
+                    <div class="file-preview" id="file-preview" style="display: none;">
+                        <span class="file-icon">📄</span>
+                        <span class="file-name" id="file-name"></span>
+                        <span class="file-size" id="file-size"></span>
+                        <button type="button" class="btn-clear" onclick="clearFile()">✕</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-primary">
+                    <i class="icon">⬆️</i> Upload Document
+                </button>
+                <a href="{{ url_for('documents') }}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+
+    <div class="upload-guidelines">
+        <h3>Document Guidelines</h3>
+        
+        <div class="guideline-section">
+            <h4>📋 Packing Slips</h4>
+            <p>Store packing slips from all controlled substance shipments. These should include:</p>
+            <ul>
+                <li>Supplier/distributor information</li>
+                <li>Date of receipt</li>
+                <li>Drug name, strength, and quantity</li>
+                <li>Lot numbers and expiration dates</li>
+            </ul>
+        </div>
+
+        <div class="guideline-section">
+            <h4>📝 DEA Forms</h4>
+            <p>Keep copies of all DEA forms:</p>
+            <ul>
+                <li><strong>DEA Form 222</strong> - Schedule II ordering</li>
+                <li><strong>DEA Form 106</strong> - Theft/Loss reports</li>
+                <li><strong>DEA Form 41</strong> - Destruction records</li>
+            </ul>
+        </div>
+
+        <div class="guideline-section">
+            <h4>⏰ Retention Requirements</h4>
+            <p>All controlled substance records must be retained for:</p>
+            <ul>
+                <li><strong>Federal (DEA):</strong> Minimum 2 years</li>
+                <li><strong>NC State:</strong> May require longer retention</li>
+            </ul>
+            <p class="text-muted">Documents stored in this system are timestamped and preserved for compliance purposes.</p>
+        </div>
+    </div>
+</div>
+
+<script>
+const uploadArea = document.getElementById('upload-area');
+const fileInput = document.getElementById('document');
+const filePreview = document.getElementById('file-preview');
+const uploadPlaceholder = document.querySelector('.upload-placeholder');
+const fileName = document.getElementById('file-name');
+const fileSize = document.getElementById('file-size');
+
+// Handle file selection
+fileInput.addEventListener('change', function() {
+    if (this.files && this.files[0]) {
+        showFilePreview(this.files[0]);
+    }
+});
+
+// Handle drag and drop
+uploadArea.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    this.classList.add('dragover');
+});
+
+uploadArea.addEventListener('dragleave', function(e) {
+    e.preventDefault();
+    this.classList.remove('dragover');
+});
+
+uploadArea.addEventListener('drop', function(e) {
+    e.preventDefault();
+    this.classList.remove('dragover');
+    
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+        fileInput.files = e.dataTransfer.files;
+        showFilePreview(e.dataTransfer.files[0]);
+    }
+});
+
+function showFilePreview(file) {
+    fileName.textContent = file.name;
+    fileSize.textContent = formatFileSize(file.size);
+    uploadPlaceholder.style.display = 'none';
+    filePreview.style.display = 'flex';
+}
+
+function clearFile() {
+    fileInput.value = '';
+    uploadPlaceholder.style.display = 'flex';
+    filePreview.style.display = 'none';
+}
+
+function formatFileSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+</script>
+
+<style>
+.upload-container {
+    display: grid;
+    grid-template-columns: 1fr 350px;
+    gap: 1.5rem;
+    max-width: 1100px;
+}
+
+@media (max-width: 900px) {
+    .upload-container {
+        grid-template-columns: 1fr;
+    }
+}
+
+.upload-form-card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 1.5rem;
+}
+
+.form-group {
+    margin-bottom: 1.25rem;
+}
+
+.form-group label {
+    display: block;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+}
+
+.form-group input,
+.form-group select {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+.form-help {
+    display: block;
+    margin-top: 0.25rem;
+    color: #6c757d;
+    font-size: 0.85rem;
+}
+
+.file-upload-area {
+    position: relative;
+    border: 2px dashed #ced4da;
+    border-radius: 8px;
+    padding: 2rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.file-upload-area:hover,
+.file-upload-area.dragover {
+    border-color: #1e4d6b;
+    background: #f8f9fa;
+}
+
+.file-upload-area input[type="file"] {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+}
+
+.upload-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.upload-icon {
+    font-size: 3rem;
+}
+
+.upload-text {
+    font-weight: 500;
+    color: #495057;
+}
+
+.upload-hint {
+    font-size: 0.85rem;
+    color: #6c757d;
+}
+
+.file-preview {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem;
+    background: #e9f5ff;
+    border-radius: 4px;
+}
+
+.file-icon {
+    font-size: 1.5rem;
+}
+
+.file-name {
+    flex: 1;
+    font-weight: 500;
+    word-break: break-all;
+}
+
+.file-size {
+    color: #6c757d;
+    font-size: 0.85rem;
+}
+
+.btn-clear {
+    background: none;
+    border: none;
+    color: #dc3545;
+    cursor: pointer;
+    font-size: 1.25rem;
+    padding: 0.25rem;
+}
+
+.form-actions {
+    margin-top: 1.5rem;
+    display: flex;
+    gap: 1rem;
+}
+
+.upload-guidelines {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 1.5rem;
+    height: fit-content;
+}
+
+.upload-guidelines h3 {
+    margin: 0 0 1rem 0;
+    font-size: 1.1rem;
+    color: #1e4d6b;
+    border-bottom: 1px solid #e9ecef;
+    padding-bottom: 0.5rem;
+}
+
+.guideline-section {
+    margin-bottom: 1.25rem;
+}
+
+.guideline-section:last-child {
+    margin-bottom: 0;
+}
+
+.guideline-section h4 {
+    font-size: 0.95rem;
+    margin: 0 0 0.5rem 0;
+    color: #495057;
+}
+
+.guideline-section p {
+    font-size: 0.9rem;
+    color: #6c757d;
+    margin-bottom: 0.5rem;
+}
+
+.guideline-section ul {
+    margin: 0;
+    padding-left: 1.25rem;
+    font-size: 0.9rem;
+    color: #6c757d;
+}
+
+.guideline-section li {
+    margin-bottom: 0.25rem;
+}
+</style>
+{% endblock %}

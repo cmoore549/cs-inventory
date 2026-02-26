@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+
+{% block title %}Add Patient-Specific Medication{% endblock %}
+{% block page_title %}Add Patient-Specific Medication{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-body">
+        <form method="POST">
+            <div class="form-section">
+                <h3>Patient Information</h3>
+                
+                <div class="form-group">
+                    <label>Select from Patient Database</label>
+                    <select name="patient_id" id="patient_select" class="form-control">
+                        <option value="">-- Select Existing Patient or Enter New --</option>
+                        {% for patient in patients %}
+                        <option value="{{ patient.id }}" 
+                                data-name="{{ patient.full_name }}"
+                                data-dob="{{ patient.date_of_birth.strftime('%Y-%m-%d') }}"
+                                data-mrn="{{ patient.mrn or '' }}"
+                                data-phone="{{ patient.phone or '' }}">
+                            {{ patient.full_name }} - DOB: {{ patient.date_of_birth.strftime('%m/%d/%Y') }}{% if patient.mrn %} - MRN: {{ patient.mrn }}{% endif %}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <small class="text-muted">Select an existing patient or manually enter new patient info below</small>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group" style="flex:2;">
+                        <label class="required">Patient Name</label>
+                        <input type="text" name="patient_name" id="patient_name" class="form-control" required placeholder="Last, First">
+                    </div>
+                    <div class="form-group">
+                        <label class="required">Date of Birth</label>
+                        <input type="date" name="patient_dob" id="patient_dob" class="form-control" required>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>MRN / Patient ID</label>
+                        <input type="text" name="patient_mrn" id="patient_mrn" class="form-control" placeholder="Medical Record Number">
+                    </div>
+                    <div class="form-group">
+                        <label>Phone</label>
+                        <input type="tel" name="patient_phone" id="patient_phone" class="form-control" placeholder="(555) 555-5555">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-section">
+                <h3>Medication Information</h3>
+                <div class="form-row">
+                    <div class="form-group" style="flex:2;">
+                        <label class="required">Medication</label>
+                        <select name="medication_id" class="form-control" required id="medication_select">
+                            <option value="">-- Select Medication --</option>
+                            {% for med in medications %}
+                            <option value="{{ med.id }}">{{ med.name }} {% if med.strength %}({{ med.strength }}){% endif %} - Schedule {{ med.schedule }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="required">Prescriber</label>
+                        <select name="prescriber_id" class="form-control" required>
+                            <option value="">-- Select Prescriber --</option>
+                            {% for provider in providers %}
+                            <option value="{{ provider.id }}">{{ provider.full_name }}{% if provider.credentials %} ({{ provider.credentials }}){% endif %}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Source Inventory (Optional)</label>
+                    <select name="source_inventory_id" class="form-control" id="source_inventory">
+                        <option value="">-- No Source / External --</option>
+                        {% for inv in inventory_items %}
+                        <option value="{{ inv.id }}" data-med-id="{{ inv.medication_id }}" data-qty="{{ inv.current_quantity }}">
+                            {{ inv.medication.name }} - Lot: {{ inv.lot_number or 'N/A' }} - Available: {{ inv.current_quantity }} {{ inv.unit_count or 'units' }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <small class="text-muted">Select if preparing from existing stock inventory</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>Prescription/Order Number</label>
+                    <input type="text" name="prescription_number" class="form-control" placeholder="Rx number or order reference">
+                </div>
+            </div>
+            
+            <div class="form-section">
+                <h3>Receipt Details</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="required">Date Received</label>
+                        <input type="date" name="preparation_date" class="form-control" required value="{{ now.strftime('%Y-%m-%d') }}">
+                    </div>
+                    <div class="form-group">
+                        <label>Expiration Date</label>
+                        <input type="date" name="expiration_date" class="form-control">
+                    </div>
+                    <div class="form-group">
+                        <label>Lot Number</label>
+                        <input type="text" name="lot_number" class="form-control" placeholder="Batch/Lot #">
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="required">Quantity Received</label>
+                        <input type="number" name="quantity_prepared" class="form-control" required min="0.01" step="0.01" id="qty_prepared">
+                    </div>
+                    <div class="form-group">
+                        <label class="required">Unit</label>
+                        <select name="unit" class="form-control">
+                            <option value="doses">Doses</option>
+                            <option value="ml">mL</option>
+                            <option value="mg">mg</option>
+                            <option value="tablets">Tablets</option>
+                            <option value="capsules">Capsules</option>
+                            <option value="vials">Vials</option>
+                            <option value="syringes">Syringes</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Storage Location</label>
+                        <input type="text" name="storage_location" class="form-control" placeholder="e.g., Patient Fridge, Locked Cabinet">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-section">
+                <h3>Notes</h3>
+                <div class="form-group">
+                    <textarea name="notes" class="form-control" rows="3" placeholder="Special instructions, preparation details, etc."></textarea>
+                </div>
+            </div>
+            
+            <div class="form-actions">
+                <a href="{{ url_for('patient_inventory') }}" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-primary">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                        <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+                    </svg>
+                    Create Patient Medication
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// Patient selection auto-fill
+document.getElementById('patient_select').addEventListener('change', function() {
+    const selected = this.options[this.selectedIndex];
+    if (this.value) {
+        document.getElementById('patient_name').value = selected.dataset.name;
+        document.getElementById('patient_dob').value = selected.dataset.dob;
+        document.getElementById('patient_mrn').value = selected.dataset.mrn;
+        document.getElementById('patient_phone').value = selected.dataset.phone;
+    }
+});
+
+// Filter source inventory by selected medication
+document.getElementById('medication_select').addEventListener('change', function() {
+    const medId = this.value;
+    const sourceSelect = document.getElementById('source_inventory');
+    const options = sourceSelect.querySelectorAll('option');
+    
+    options.forEach(opt => {
+        if (opt.value === '') {
+            opt.style.display = '';
+        } else if (opt.dataset.medId === medId) {
+            opt.style.display = '';
+        } else {
+            opt.style.display = 'none';
+        }
+    });
+    
+    sourceSelect.value = '';
+});
+
+// Validate quantity against source
+document.querySelector('form').addEventListener('submit', function(e) {
+    const sourceSelect = document.getElementById('source_inventory');
+    const qtyInput = document.getElementById('qty_prepared');
+    
+    if (sourceSelect.value) {
+        const selectedOpt = sourceSelect.options[sourceSelect.selectedIndex];
+        const availableQty = parseFloat(selectedOpt.dataset.qty);
+        const requestedQty = parseFloat(qtyInput.value);
+        
+        if (requestedQty > availableQty) {
+            e.preventDefault();
+            alert('Quantity exceeds available stock (' + availableQty + ')');
+        }
+    }
+});
+</script>
+{% endblock %}

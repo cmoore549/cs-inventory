@@ -1,0 +1,329 @@
+{% extends "base.html" %}
+
+{% block title %}{{ medication.name }}{% endblock %}
+{% block page_title %}{{ medication.name }}{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('edit_medication', id=medication.id) }}" class="btn btn-secondary btn-sm">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+    </svg>
+    Edit
+</a>
+<a href="{{ url_for('receive_inventory') }}?medication_id={{ medication.id }}" class="btn btn-primary btn-sm">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+    </svg>
+    Receive Inventory
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="detail-grid">
+    <!-- Left Column - Medication Info -->
+    <div class="col-left">
+        <div class="card mb-3">
+            <div class="card-header">
+                <h3 class="card-title">Medication Details</h3>
+            </div>
+            <div class="card-body">
+                <div class="detail-header mb-3">
+                    <span class="schedule-badge schedule-{{ medication.schedule|lower }}" style="font-size: 1rem; padding: 0.5rem 1rem;">
+                        Schedule {{ medication.schedule }}
+                    </span>
+                    {% if medication.is_low_stock %}
+                    <span class="status-badge status-warning">Low Stock</span>
+                    {% endif %}
+                </div>
+                
+                <dl class="detail-list">
+                    <dt>Brand Name</dt>
+                    <dd>{{ medication.name }}</dd>
+                    
+                    <dt>Generic Name</dt>
+                    <dd>{{ medication.generic_name or '-' }}</dd>
+                    
+                    <dt>Strength</dt>
+                    <dd>{{ medication.strength or '-' }}</dd>
+                    
+                    <dt>Form</dt>
+                    <dd>{{ medication.form or '-' }}</dd>
+                    
+                    <dt>NDC</dt>
+                    <dd class="font-mono">{{ medication.ndc or '-' }}</dd>
+                    
+                    <dt>Manufacturer</dt>
+                    <dd>{{ medication.manufacturer or '-' }}</dd>
+                    
+                    <dt>Unit</dt>
+                    <dd>{{ medication.unit or 'units' }}</dd>
+                </dl>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Stock Settings</h3>
+            </div>
+            <div class="card-body">
+                <dl class="detail-list">
+                    <dt>Low Stock Threshold</dt>
+                    <dd>{{ medication.low_stock_threshold or 10 }} {{ medication.unit or 'units' }}</dd>
+                    
+                    <dt>Reorder Point</dt>
+                    <dd>{{ medication.reorder_point or '-' }}</dd>
+                    
+                    <dt>Reorder Quantity</dt>
+                    <dd>{{ medication.reorder_quantity or '-' }}</dd>
+                </dl>
+                
+                {% if medication.description %}
+                <div class="mt-3">
+                    <strong>Notes:</strong>
+                    <p class="text-muted">{{ medication.description }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Right Column - Stock Summary -->
+    <div class="col-right">
+        <div class="card mb-3">
+            <div class="card-header">
+                <h3 class="card-title">Current Stock Summary</h3>
+            </div>
+            <div class="card-body">
+                <div class="stock-summary">
+                    <div class="stock-total {% if medication.is_low_stock %}stock-low{% endif %}">
+                        <span class="stock-value">{{ '%g'|format(medication.total_quantity) }}</span>
+                        <span class="stock-label">{{ medication.unit or 'units' }} on hand</span>
+                    </div>
+                    
+                    <div class="stock-details">
+                        <div class="stock-detail">
+                            <span class="stock-detail-value">{{ inventory_items|length }}</span>
+                            <span class="stock-detail-label">Active Lots</span>
+                        </div>
+                        <div class="stock-detail">
+                            <span class="stock-detail-value">{{ expiring_soon }}</span>
+                            <span class="stock-detail-label">Expiring 90 Days</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Current Inventory Lots -->
+        <div class="card">
+            <div class="card-header">
+                <h3 class="card-title">Inventory Lots</h3>
+                <a href="{{ url_for('inventory') }}?search={{ medication.name }}" class="btn btn-outline btn-sm">View in Inventory</a>
+            </div>
+            <div class="card-body">
+                {% if inventory_items %}
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Lot #</th>
+                                <th>Expiration</th>
+                                <th class="text-right">Quantity</th>
+                                <th>Location</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in inventory_items %}
+                            <tr class="{% if item.is_expired %}row-danger{% elif item.days_until_expiration <= 30 %}row-warning{% endif %}">
+                                <td class="font-mono">{{ item.lot_number or '-' }}</td>
+                                <td>
+                                    {% if item.expiration_date %}
+                                    {{ item.expiration_date.strftime('%m/%d/%Y') }}
+                                    {% if item.is_expired %}
+                                    <span class="text-danger font-bold">(EXPIRED)</span>
+                                    {% elif item.days_until_expiration <= 30 %}
+                                    <span class="text-warning">({{ item.days_until_expiration }}d)</span>
+                                    {% endif %}
+                                    {% else %}
+                                    -
+                                    {% endif %}
+                                </td>
+                                <td class="text-right font-mono font-bold">{{ item.current_quantity }} {{ item.unit_count or medication.unit or 'units' }}</td>
+                                <td>{{ item.storage_location or '-' }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="empty-state-small">
+                    <p class="text-muted">No inventory on hand</p>
+                    <a href="{{ url_for('receive_inventory') }}?medication_id={{ medication.id }}" class="btn btn-primary btn-sm">Receive Inventory</a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Transactions -->
+<div class="card mt-3">
+    <div class="card-header">
+        <h3 class="card-title">Recent Transactions</h3>
+        <a href="{{ url_for('usage_report') }}?search={{ medication.name }}" class="btn btn-outline btn-sm">View All</a>
+    </div>
+    <div class="card-body">
+        {% if recent_transactions %}
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Type</th>
+                        <th>Lot #</th>
+                        <th class="text-right">Quantity</th>
+                        <th>Patient</th>
+                        <th>Performed By</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tx in recent_transactions %}
+                    <tr>
+                        <td class="font-mono">{{ tx.performed_at.strftime('%m/%d/%Y %H:%M') }}</td>
+                        <td>
+                            <span class="tx-type-badge tx-type-{{ tx.transaction_type }}">
+                                {{ tx.transaction_type|title }}
+                            </span>
+                        </td>
+                        <td class="font-mono">{{ tx.inventory_item.lot_number or '-' }}</td>
+                        <td class="text-right font-mono {% if tx.transaction_type == 'receive' %}text-success{% else %}text-danger{% endif %}">
+                            {% if tx.transaction_type == 'receive' %}+{% else %}-{% endif %}{{ tx.quantity|abs }} {{ tx.inventory_item.unit_count or medication.unit or 'units' }}
+                        </td>
+                        <td>{{ tx.patient_name or '-' }}</td>
+                        <td>{{ tx.performer.full_name if tx.performer else '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-muted text-center">No recent transactions</p>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.5fr;
+    gap: var(--spacing-lg);
+}
+
+@media (max-width: 900px) {
+    .detail-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.detail-header {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+}
+
+.detail-list {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    gap: 0.75rem 1rem;
+}
+
+.detail-list dt {
+    font-weight: 500;
+    color: var(--text-muted);
+}
+
+.detail-list dd {
+    margin: 0;
+}
+
+.stock-summary {
+    text-align: center;
+}
+
+.stock-total {
+    padding: 1.5rem;
+    background: rgba(45, 122, 79, 0.1);
+    border-radius: var(--radius-lg);
+    margin-bottom: 1rem;
+}
+
+.stock-total.stock-low {
+    background: rgba(181, 137, 0, 0.1);
+}
+
+.stock-value {
+    display: block;
+    font-size: 3rem;
+    font-weight: 700;
+    color: var(--success);
+    line-height: 1;
+}
+
+.stock-low .stock-value {
+    color: var(--warning);
+}
+
+.stock-label {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.stock-details {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+}
+
+.stock-detail {
+    text-align: center;
+}
+
+.stock-detail-value {
+    display: block;
+    font-size: 1.5rem;
+    font-weight: 600;
+}
+
+.stock-detail-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.empty-state-small {
+    text-align: center;
+    padding: 2rem;
+}
+
+.row-danger {
+    background: rgba(185, 28, 28, 0.05);
+}
+
+.row-warning {
+    background: rgba(181, 137, 0, 0.05);
+}
+
+.tx-type-badge {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+.tx-type-dispense { background: rgba(45, 106, 159, 0.15); color: var(--info); }
+.tx-type-waste { background: rgba(181, 137, 0, 0.15); color: var(--warning); }
+.tx-type-receive { background: rgba(45, 122, 79, 0.15); color: var(--success); }
+.tx-type-adjust { background: rgba(108, 117, 125, 0.15); color: var(--gray-600); }
+</style>
+{% endblock %}

@@ -1,0 +1,508 @@
+{% extends "base.html" %}
+
+{% block title %}Physical Inventory Report{% endblock %}
+{% block page_title %}Physical Inventory Report{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('physical_inventory_list') }}" class="btn btn-secondary btn-sm">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+    </svg>
+    Back to List
+</a>
+<a href="{{ url_for('physical_inventory_pdf', id=inventory.id) }}" class="btn btn-primary btn-sm">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+    </svg>
+    Export PDF
+</a>
+<button onclick="window.print()" class="btn btn-outline btn-sm">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+        <rect x="6" y="14" width="12" height="8"/>
+    </svg>
+    Print
+</button>
+{% endblock %}
+
+{% block content %}
+<div class="card mb-3">
+    <div class="card-header">
+        <h3 class="card-title">
+            {{ inventory.inventory_type|replace('_', ' ')|title }} Inventory - {{ inventory.inventory_date.strftime('%B %d, %Y') }}
+        </h3>
+        {% if inventory.status == 'completed' %}
+        <span class="status-badge status-success">Completed</span>
+        {% elif inventory.status == 'reviewed' %}
+        <span class="status-badge status-info">Reviewed</span>
+        {% endif %}
+    </div>
+    <div class="card-body">
+        <div class="detail-grid">
+            <div class="detail-section">
+                <h4>Summary</h4>
+                <dl class="detail-list">
+                    <dt>Total Items</dt>
+                    <dd class="font-mono font-bold">{{ inventory.total_items }}</dd>
+                    
+                    <dt>Items Counted</dt>
+                    <dd class="font-mono">{{ inventory.counted_items }}</dd>
+                    
+                    <dt>Discrepancies</dt>
+                    <dd class="font-mono {% if inventory.discrepancy_count > 0 %}text-danger{% endif %}">
+                        {{ inventory.discrepancy_count }}
+                    </dd>
+                </dl>
+            </div>
+            
+            <div class="detail-section">
+                <h4>Personnel</h4>
+                <dl class="detail-list">
+                    <dt>Started By</dt>
+                    <dd>{{ inventory.starter.full_name if inventory.starter else '-' }}</dd>
+                    
+                    <dt>Started At</dt>
+                    <dd>{{ inventory.started_at.strftime('%m/%d/%Y %H:%M') if inventory.started_at else '-' }}</dd>
+                    
+                    <dt>Completed By</dt>
+                    <dd>{{ inventory.completer.full_name if inventory.completer else '-' }}</dd>
+                    
+                    <dt>Completed At</dt>
+                    <dd>{{ inventory.completed_at.strftime('%m/%d/%Y %H:%M') if inventory.completed_at else '-' }}</dd>
+                </dl>
+            </div>
+        </div>
+        
+        {% if inventory.notes %}
+        <div class="mt-3">
+            <strong>Notes:</strong>
+            <p class="text-muted">{{ inventory.notes }}</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if inventory.discrepancy_count > 0 %}
+<div class="card mb-3">
+    <div class="card-header" style="background: rgba(200, 50, 50, 0.1);">
+        <h3 class="card-title text-danger">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            Discrepancies ({{ inventory.discrepancy_count }})
+        </h3>
+    </div>
+    <div class="card-body">
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Medication</th>
+                        <th>Lot #</th>
+                        <th class="text-right">Expected</th>
+                        <th class="text-right">Actual</th>
+                        <th class="text-right">Variance</th>
+                        <th>Notes</th>
+                        <th>Status</th>
+                        {% if current_user.role == 'admin' %}
+                        <th>Actions</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in inventory.count_items if item.discrepancy != 0 %}
+                    <tr>
+                        <td>
+                            <span class="schedule-badge schedule-{{ item.inventory_item.medication.schedule|lower }}">
+                                {{ item.inventory_item.medication.schedule }}
+                            </span>
+                            {{ item.inventory_item.medication.name }}
+                        </td>
+                        <td class="font-mono">{{ item.inventory_item.lot_number or '-' }}</td>
+                        {% set unit = item.inventory_item.unit_count or item.inventory_item.medication.unit or 'units' %}
+                        <td class="text-right font-mono">{{ item.expected_quantity }} {{ unit }}</td>
+                        <td class="text-right font-mono">{{ item.actual_quantity }} {{ unit }}</td>
+                        <td class="text-right font-mono text-danger font-bold">
+                            {% if item.discrepancy > 0 %}+{% endif %}{{ item.discrepancy }} {{ unit }}
+                        </td>
+                        <td>{{ item.discrepancy_notes or '-' }}</td>
+                        <td>
+                            {% if item.discrepancy_resolved %}
+                            <span class="status-badge status-success">Resolved</span>
+                            {% else %}
+                            <span class="status-badge status-warning">Pending</span>
+                            {% endif %}
+                        </td>
+                        {% if current_user.role == 'admin' %}
+                        <td>
+                            {% if not item.discrepancy_resolved %}
+                            <form method="POST" action="{{ url_for('adjust_from_physical_inventory', id=inventory.id) }}" style="display: inline;">
+                                <input type="hidden" name="item_id" value="{{ item.id }}">
+                                <input type="hidden" name="reason" value="Physical inventory adjustment">
+                                <button type="submit" class="btn btn-outline btn-sm" 
+                                        onclick="return confirm('Adjust inventory from {{ item.expected_quantity }} to {{ item.actual_quantity }}?');">
+                                    Adjust
+                                </button>
+                            </form>
+                            {% else %}
+                            <small class="text-muted">{{ item.resolution_notes }}</small>
+                            {% endif %}
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% set clinic_items = inventory.count_items | selectattr('inventory_item_id') | list %}
+{% set patient_items = inventory.count_items | selectattr('patient_medication_id') | list %}
+
+{% if clinic_items %}
+<div class="card mb-3">
+    <div class="card-header">
+        <h3 class="card-title">Clinic Inventory ({{ clinic_items|length }} items)</h3>
+    </div>
+    <div class="card-body">
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Medication</th>
+                        <th>Lot #</th>
+                        <th class="hide-print">Location</th>
+                        <th>Unit</th>
+                        <th class="text-right">Expected</th>
+                        <th class="text-right">Actual</th>
+                        <th class="text-right">Variance</th>
+                        <th class="hide-print">Counted By</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in clinic_items %}
+                    {% set unit = item.inventory_item.unit_count or item.inventory_item.medication.unit or 'units' %}
+                    <tr class="{% if item.discrepancy != 0 %}row-warning{% endif %}">
+                        <td>
+                            <span class="schedule-badge schedule-{{ item.inventory_item.medication.schedule|lower }}">
+                                {{ item.inventory_item.medication.schedule }}
+                            </span>
+                            {{ item.inventory_item.medication.name }}
+                            {% if item.inventory_item.medication.strength %}<br><small>{{ item.inventory_item.medication.strength }}</small>{% endif %}
+                        </td>
+                        <td class="font-mono">{{ item.inventory_item.lot_number or '-' }}</td>
+                        <td class="hide-print">{{ item.inventory_item.storage_location or '-' }}</td>
+                        <td>{{ unit }}</td>
+                        <td class="text-right font-mono">{{ item.expected_quantity }} {{ unit }}</td>
+                        <td class="text-right font-mono">{{ item.actual_quantity if item.actual_quantity is not none else '-' }}{% if item.actual_quantity is not none %} {{ unit }}{% endif %}</td>
+                        <td class="text-right font-mono {% if item.discrepancy != 0 %}text-danger{% endif %}">
+                            {% if item.actual_quantity is not none %}
+                                {% if item.discrepancy > 0 %}+{% endif %}{{ item.discrepancy }} {{ unit }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td class="hide-print">{{ item.counter.full_name if item.counter else '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if patient_items %}
+<div class="card mb-3">
+    <div class="card-header" style="background: rgba(23, 162, 184, 0.1);">
+        <h3 class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20" style="vertical-align: -4px;">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+            </svg>
+            Patient Stock ({{ patient_items|length }} items)
+        </h3>
+    </div>
+    <div class="card-body">
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Patient</th>
+                        <th>Medication</th>
+                        <th>Lot #</th>
+                        <th class="hide-print">Location</th>
+                        <th>Unit</th>
+                        <th class="text-right">Expected</th>
+                        <th class="text-right">Actual</th>
+                        <th class="text-right">Variance</th>
+                        <th class="hide-print">Counted By</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in patient_items %}
+                    {% set unit = item.patient_medication.unit or item.patient_medication.medication.unit or 'units' %}
+                    <tr class="patient-row {% if item.discrepancy != 0 %}row-warning{% endif %}">
+                        <td>
+                            <strong>{{ item.patient_medication.patient_name }}</strong>
+                            {% if item.patient_medication.patient_mrn %}
+                            <br><small>MRN: {{ item.patient_medication.patient_mrn }}</small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="schedule-badge schedule-{{ item.patient_medication.medication.schedule|lower }}">
+                                {{ item.patient_medication.medication.schedule }}
+                            </span>
+                            {{ item.patient_medication.medication.name }}
+                            {% if item.patient_medication.medication.strength %}<br><small>{{ item.patient_medication.medication.strength }}</small>{% endif %}
+                        </td>
+                        <td class="font-mono">{{ item.patient_medication.lot_number or '-' }}</td>
+                        <td class="hide-print">{{ item.patient_medication.storage_location or '-' }}</td>
+                        <td>{{ unit }}</td>
+                        <td class="text-right font-mono">{{ item.expected_quantity }} {{ unit }}</td>
+                        <td class="text-right font-mono">{{ item.actual_quantity if item.actual_quantity is not none else '-' }}{% if item.actual_quantity is not none %} {{ unit }}{% endif %}</td>
+                        <td class="text-right font-mono {% if item.discrepancy != 0 %}text-danger{% endif %}">
+                            {% if item.actual_quantity is not none %}
+                                {% if item.discrepancy > 0 %}+{% endif %}{{ item.discrepancy }} {{ unit }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td class="hide-print">{{ item.counter.full_name if item.counter else '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<style>
+.detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: var(--spacing-lg);
+}
+.detail-section h4 {
+    margin-bottom: var(--spacing-md);
+    color: var(--text-muted);
+    font-size: 0.875rem;
+    text-transform: uppercase;
+}
+.detail-list {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: var(--spacing-sm) var(--spacing-md);
+}
+.detail-list dt {
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+.detail-list dd {
+    margin: 0;
+}
+.row-warning {
+    background: rgba(181, 137, 0, 0.1);
+}
+.patient-row {
+    background: rgba(23, 162, 184, 0.05);
+}
+
+/* Print styles - condensed single page */
+@media print {
+    /* Hide non-essential elements */
+    .sidebar, .top-header, .btn, form, .alert, nav, header, .header-actions, .page-header, .no-print { 
+        display: none !important; 
+    }
+    
+    /* Reset page margins */
+    @page {
+        size: letter portrait;
+        margin: 0.25in;
+    }
+    
+    html, body {
+        font-size: 8pt !important;
+        line-height: 1.15 !important;
+        background: white !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    
+    .app-container {
+        display: block !important;
+    }
+    
+    .main-content {
+        margin-left: 0 !important;
+        padding: 0 !important;
+        max-width: 100% !important;
+    }
+    
+    .content-area {
+        padding: 0 !important;
+    }
+    
+    /* Compact cards - fix corner clipping */
+    .card {
+        box-shadow: none !important;
+        border: 1px solid #999 !important;
+        border-radius: 0 !important;
+        margin-bottom: 8pt !important;
+        page-break-inside: avoid;
+        overflow: visible !important;
+    }
+    
+    .card-header {
+        padding: 4pt 8pt !important;
+        background: #f0f0f0 !important;
+        border-radius: 0 !important;
+        border-bottom: 1px solid #999 !important;
+    }
+    
+    .card-header h3, .card-title {
+        font-size: 9pt !important;
+        margin: 0 !important;
+    }
+    
+    .card-body {
+        padding: 6pt 8pt !important;
+    }
+    
+    /* Inline summary and personnel */
+    .detail-grid {
+        display: flex !important;
+        gap: 20pt !important;
+        flex-wrap: wrap;
+    }
+    
+    .detail-section {
+        flex: 1;
+        min-width: 150pt;
+    }
+    
+    .detail-section h4 {
+        font-size: 7pt !important;
+        margin-bottom: 2pt !important;
+        text-transform: uppercase;
+        font-weight: bold;
+    }
+    
+    .detail-list {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 1pt 6pt !important;
+        font-size: 8pt !important;
+    }
+    
+    .detail-list dt {
+        font-size: 7pt !important;
+        color: #666 !important;
+    }
+    
+    .detail-list dd {
+        font-size: 8pt !important;
+        margin: 0 !important;
+    }
+    
+    /* Very compact table */
+    .table-container {
+        overflow: visible !important;
+    }
+    
+    table {
+        font-size: 7pt !important;
+        width: 100% !important;
+        border-collapse: collapse !important;
+    }
+    
+    th, td {
+        padding: 2pt 4pt !important;
+        font-size: 7pt !important;
+        border: 0.5pt solid #ccc !important;
+    }
+    
+    th {
+        background: #e5e5e5 !important;
+        font-weight: 600 !important;
+        font-size: 6pt !important;
+        text-transform: uppercase;
+    }
+    
+    /* Hide columns marked hide-print */
+    .hide-print {
+        display: none !important;
+    }
+    
+    .schedule-badge {
+        font-size: 6pt !important;
+        padding: 0pt 3pt !important;
+        border-radius: 2pt !important;
+        display: inline-block;
+        margin-right: 2pt;
+    }
+    
+    .status-badge {
+        font-size: 7pt !important;
+        padding: 1pt 4pt !important;
+        border-radius: 2pt !important;
+    }
+    
+    /* Medication name with strength inline */
+    td small {
+        color: #555 !important;
+        font-size: 6pt !important;
+        display: inline !important;
+        margin-left: 3pt;
+    }
+    
+    td small::before {
+        content: "- ";
+    }
+    
+    /* Remove line break before strength */
+    td br {
+        display: none !important;
+    }
+    
+    /* Monospace smaller */
+    .font-mono {
+        font-family: monospace !important;
+        font-size: 7pt !important;
+    }
+    
+    /* Print header */
+    .card:first-of-type .card-header::before {
+        content: "Magnolia Health PLLC - Controlled Substance Inventory";
+        display: block;
+        font-size: 7pt;
+        color: #666;
+        margin-bottom: 2pt;
+        font-weight: normal;
+    }
+    
+    /* Remove excess margins */
+    .mb-3 {
+        margin-bottom: 8pt !important;
+    }
+    
+    .mt-3 {
+        margin-top: 4pt !important;
+    }
+    
+    /* Patient row subtle background */
+    .patient-row {
+        background: #f9f9f9 !important;
+    }
+    
+    .row-warning {
+        background: #fff3cd !important;
+    }
+}
+</style>
+{% endblock %}

@@ -1,0 +1,320 @@
+{% extends "base.html" %}
+
+{% block title %}Biennial Inventory - {{ inventory.inventory_date.strftime('%m/%d/%Y') }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="header-content">
+        <h1>Biennial Inventory</h1>
+        <p class="subtitle">{{ inventory.inventory_date.strftime('%B %d, %Y') }}</p>
+    </div>
+    <div class="header-actions">
+        {% if not inventory.is_complete %}
+        <a href="{{ url_for('edit_biennial_inventory', id=inventory.id) }}" class="btn btn-secondary">
+            Edit
+        </a>
+        {% endif %}
+        <a href="{{ url_for('print_biennial_inventory', id=inventory.id) }}" class="btn btn-secondary" target="_blank">
+            Print
+        </a>
+        <a href="{{ url_for('biennial_inventory') }}" class="btn btn-secondary">
+            ← Back
+        </a>
+    </div>
+</div>
+
+<div class="inventory-view">
+    <div class="status-banner {% if inventory.is_complete %}completed{% else %}draft{% endif %}">
+        {% if inventory.is_complete %}
+        <span class="status-icon">✓</span>
+        <span class="status-text">Completed on {{ inventory.completed_at.strftime('%m/%d/%Y at %I:%M %p') if inventory.completed_at else 'Unknown' }}</span>
+        {% else %}
+        <span class="status-icon">📝</span>
+        <span class="status-text">Draft - Not Yet Completed</span>
+        {% endif %}
+    </div>
+
+    <div class="info-cards">
+        <div class="info-card">
+            <h3>Inventory Information</h3>
+            <div class="info-grid">
+                <div class="info-item">
+                    <label>Inventory Date</label>
+                    <span>{{ inventory.inventory_date.strftime('%m/%d/%Y') }}</span>
+                </div>
+                <div class="info-item">
+                    <label>Start Time</label>
+                    <span>{{ inventory.inventory_time or 'N/A' }}</span>
+                </div>
+                <div class="info-item">
+                    <label>Conducted By</label>
+                    <span>{{ inventory.conductor.full_name }}</span>
+                </div>
+                <div class="info-item">
+                    <label>Status</label>
+                    <span class="status-badge {% if inventory.is_complete %}badge-success{% else %}badge-warning{% endif %}">
+                        {{ 'Completed' if inventory.is_complete else 'Draft' }}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <div class="info-card">
+            <h3>Witness Information</h3>
+            <div class="info-grid">
+                <div class="info-item">
+                    <label>Witness Name</label>
+                    <span>{{ inventory.witness.full_name if inventory.witness else 'Not Assigned' }}</span>
+                </div>
+                <div class="info-item">
+                    <label>Witness Title</label>
+                    <span>{{ inventory.witness.role|title if inventory.witness else 'N/A' }}</span>
+                </div>
+                {% if inventory.is_complete and inventory.completed_at %}
+                <div class="info-item">
+                    <label>Completed At</label>
+                    <span>{{ inventory.completed_at.strftime('%m/%d/%Y at %I:%M %p') }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {% if inventory.notes %}
+    <div class="notes-card">
+        <h3>Notes</h3>
+        <p>{{ inventory.notes }}</p>
+    </div>
+    {% endif %}
+
+    <div class="items-card">
+        <h3>Inventory Items</h3>
+        
+        {% set all_items = inventory.items.all() %}
+        {% set schedule_ii_items = all_items|selectattr('schedule', 'equalto', 'II')|list %}
+        {% set other_items = all_items|rejectattr('schedule', 'equalto', 'II')|list %}
+
+        {% if schedule_ii_items %}
+        <div class="schedule-section">
+            <h4 class="schedule-header schedule-ii">Schedule II Substances (Exact Count Required)</h4>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Medication</th>
+                        <th>Strength</th>
+                        <th>Form</th>
+                        <th>Lot #</th>
+                        <th>Expiration</th>
+                        <th>Count Method</th>
+                        <th>Quantity Counted</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in schedule_ii_items %}
+                    <tr>
+                        <td><strong>{{ item.drug_name }}</strong></td>
+                        <td>{{ item.strength or '-' }}</td>
+                        <td>{{ item.form or '-' }}</td>
+                        <td>{{ item.lot_number or '-' }}</td>
+                        <td>{{ item.expiration_date.strftime('%m/%d/%Y') if item.expiration_date else '-' }}</td>
+                        <td><span class="method-badge exact">Exact</span></td>
+                        <td><strong>{{ item.quantity_counted }}</strong> {{ item.unit or 'units' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        {% if other_items %}
+        <div class="schedule-section">
+            <h4 class="schedule-header schedule-other">Schedule III-V Substances</h4>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Medication</th>
+                        <th>Schedule</th>
+                        <th>Strength</th>
+                        <th>Form</th>
+                        <th>Lot #</th>
+                        <th>Expiration</th>
+                        <th>Count Method</th>
+                        <th>Quantity Counted</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in other_items %}
+                    <tr>
+                        <td><strong>{{ item.drug_name }}</strong></td>
+                        <td>
+                            <span class="schedule-badge schedule-{{ item.schedule|lower }}">
+                                {{ item.schedule }}
+                            </span>
+                        </td>
+                        <td>{{ item.strength or '-' }}</td>
+                        <td>{{ item.form or '-' }}</td>
+                        <td>{{ item.lot_number or '-' }}</td>
+                        <td>{{ item.expiration_date.strftime('%m/%d/%Y') if item.expiration_date else '-' }}</td>
+                        <td>
+                            <span class="method-badge {{ item.count_method }}">
+                                {{ item.count_method|title if item.count_method else 'Exact' }}
+                            </span>
+                        </td>
+                        <td><strong>{{ item.quantity_counted }}</strong> {{ item.unit or 'units' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        {% if not schedule_ii_items and not other_items %}
+        <div class="empty-state">
+            <p>No items recorded in this inventory.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.inventory-view {
+    max-width: 1200px;
+}
+
+.status-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    font-weight: 500;
+}
+
+.status-banner.completed {
+    background: #d4edda;
+    color: #155724;
+}
+
+.status-banner.draft {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.status-icon {
+    font-size: 1.25rem;
+}
+
+.info-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.info-card, .notes-card, .items-card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 1.5rem;
+}
+
+.info-card h3, .notes-card h3, .items-card h3 {
+    margin: 0 0 1rem 0;
+    font-size: 1.1rem;
+    color: #1e4d6b;
+    border-bottom: 1px solid #e9ecef;
+    padding-bottom: 0.5rem;
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+
+.info-item label {
+    display: block;
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin-bottom: 0.25rem;
+}
+
+.info-item span {
+    font-weight: 500;
+}
+
+.notes-card {
+    margin-bottom: 1.5rem;
+}
+
+.notes-card p {
+    margin: 0;
+    color: #495057;
+}
+
+.items-card {
+    margin-bottom: 1.5rem;
+}
+
+.schedule-section {
+    margin-bottom: 2rem;
+}
+
+.schedule-section:last-child {
+    margin-bottom: 0;
+}
+
+.schedule-header {
+    font-size: 1rem;
+    margin: 0 0 1rem 0;
+    padding: 0.75rem 1rem;
+    border-radius: 4px;
+}
+
+.schedule-header.schedule-ii {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.schedule-header.schedule-other {
+    background: #e9ecef;
+    color: #495057;
+}
+
+.method-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.method-badge.exact {
+    background: #dc3545;
+    color: white;
+}
+
+.method-badge.estimated {
+    background: #6c757d;
+    color: white;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+}
+
+.badge-success {
+    background: #d4edda;
+    color: #155724;
+}
+
+.badge-warning {
+    background: #fff3cd;
+    color: #856404;
+}
+</style>
+{% endblock %}

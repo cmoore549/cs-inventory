@@ -1,0 +1,405 @@
+{% extends "base.html" %}
+
+{% block title %}Resolve Discrepancy{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="header-content">
+        <h1>Resolve Discrepancy</h1>
+        {% if is_physical_inventory %}
+        <p class="subtitle">Physical Inventory Item #{{ count.id }} - {{ count.physical_inventory.inventory_date.strftime('%m/%d/%Y') }}</p>
+        {% else %}
+        <p class="subtitle">Daily Count #{{ count.id }} - {{ count.count_date.strftime('%m/%d/%Y') }}</p>
+        {% endif %}
+    </div>
+    <div class="header-actions">
+        <a href="{{ url_for('discrepancy_report') }}" class="btn btn-secondary">
+            ← Back to Discrepancy Report
+        </a>
+    </div>
+</div>
+
+<div class="discrepancy-container">
+    <div class="alert alert-warning">
+        <h4>⚠️ Discrepancy Detected</h4>
+        <p>A discrepancy was found during the inventory count. This must be resolved with documentation and witness verification before continuing.</p>
+    </div>
+
+    <div class="discrepancy-details">
+        <div class="detail-card">
+            <h3>Inventory Item</h3>
+            <div class="info-grid">
+                {% if is_physical_inventory %}
+                    {% if count.inventory_item %}
+                <div class="info-item">
+                    <label>Medication</label>
+                    <span>{{ count.inventory_item.medication.name }} {{ count.inventory_item.medication.strength or '' }}</span>
+                </div>
+                <div class="info-item">
+                    <label>Schedule</label>
+                    <span class="schedule-badge schedule-{{ count.inventory_item.medication.schedule|lower }}">
+                        Schedule {{ count.inventory_item.medication.schedule }}
+                    </span>
+                </div>
+                <div class="info-item">
+                    <label>Lot Number</label>
+                    <span>{{ count.inventory_item.lot_number or '-' }}</span>
+                </div>
+                <div class="info-item">
+                    <label>Location</label>
+                    <span>{{ count.inventory_item.storage_location or '-' }}</span>
+                </div>
+                    {% elif count.patient_medication %}
+                <div class="info-item">
+                    <label>Medication</label>
+                    <span>{{ count.patient_medication.medication.name }} {{ count.patient_medication.medication.strength or '' }}</span>
+                </div>
+                <div class="info-item">
+                    <label>Schedule</label>
+                    <span class="schedule-badge schedule-{{ count.patient_medication.medication.schedule|lower }}">
+                        Schedule {{ count.patient_medication.medication.schedule }}
+                    </span>
+                </div>
+                <div class="info-item">
+                    <label>Patient</label>
+                    <span>{{ count.patient_medication.patient.full_name }}</span>
+                </div>
+                <div class="info-item">
+                    <label>Lot Number</label>
+                    <span>{{ count.patient_medication.lot_number or '-' }}</span>
+                </div>
+                    {% endif %}
+                {% else %}
+                <div class="info-item">
+                    <label>Medication</label>
+                    <span>{{ count.inventory_item.medication.name }} {{ count.inventory_item.medication.strength or '' }}</span>
+                </div>
+                <div class="info-item">
+                    <label>Schedule</label>
+                    <span class="schedule-badge schedule-{{ count.inventory_item.medication.schedule|lower }}">
+                        Schedule {{ count.inventory_item.medication.schedule }}
+                    </span>
+                </div>
+                <div class="info-item">
+                    <label>Lot Number</label>
+                    <span>{{ count.inventory_item.lot_number or '-' }}</span>
+                </div>
+                <div class="info-item">
+                    <label>Form</label>
+                    <span>{{ count.inventory_item.medication.form or '-' }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="detail-card count-comparison">
+            <h3>Count Comparison</h3>
+            <div class="count-grid">
+                <div class="count-box expected">
+                    <span class="count-label">Expected Count</span>
+                    <span class="count-value">{{ count.expected_quantity if is_physical_inventory else count.expected_count }}</span>
+                </div>
+                <div class="count-box actual">
+                    <span class="count-label">Actual Count</span>
+                    <span class="count-value">{{ count.actual_quantity if is_physical_inventory else count.actual_count }}</span>
+                </div>
+                <div class="count-box discrepancy {% if count.discrepancy > 0 %}positive{% else %}negative{% endif %}">
+                    <span class="count-label">Discrepancy</span>
+                    <span class="count-value">
+                        {% if count.discrepancy > 0 %}+{% endif %}{{ count.discrepancy }}
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <div class="detail-card">
+            <h3>Count Information</h3>
+            <div class="info-grid">
+                <div class="info-item">
+                    <label>Counted By</label>
+                    <span>{{ count.counter.full_name if is_physical_inventory else count.counted_by.full_name }}</span>
+                </div>
+                <div class="info-item">
+                    <label>Count Date</label>
+                    {% if is_physical_inventory %}
+                    <span>{{ count.counted_at.strftime('%m/%d/%Y at %I:%M %p') if count.counted_at else count.physical_inventory.inventory_date.strftime('%m/%d/%Y') }}</span>
+                    {% else %}
+                    <span>{{ count.count_date.strftime('%m/%d/%Y at %I:%M %p') }}</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="resolution-form">
+        <form method="POST" action="{{ url_for('resolve_discrepancy', id=count.id) }}">
+            <div class="form-card">
+                <h3>Resolution Details</h3>
+                
+                <div class="form-group">
+                    <label for="resolution_type" class="form-label required">Resolution Type</label>
+                    <select name="resolution_type" id="resolution_type" required class="form-control">
+                        <option value="">-- Select Resolution Type --</option>
+                        <option value="counting_error">Counting Error - Recount Performed</option>
+                        <option value="documentation_error">Documentation Error - Records Corrected</option>
+                        <option value="spillage">Spillage/Breakage</option>
+                        <option value="expired_removed">Expired - Removed from Inventory</option>
+                        <option value="theft">Suspected Theft/Diversion</option>
+                        <option value="other">Other (Explain Below)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="resolution_notes" class="form-label required">Resolution Notes</label>
+                    <textarea name="resolution_notes" id="resolution_notes" rows="4" required class="form-control"
+                        placeholder="Provide a detailed explanation of the discrepancy and how it was resolved..."></textarea>
+                    <small class="form-text">
+                        Be specific: root cause identified, corrective actions taken, whether a recount was performed, etc.
+                    </small>
+                </div>
+
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" name="adjust_inventory" id="adjust_inventory" value="yes" checked onchange="toggleWitnessSection()">
+                        <span>Adjust inventory to match actual count</span>
+                    </label>
+                    <small class="form-text">
+                        If checked, the system will create an adjustment transaction to correct the inventory balance.
+                    </small>
+                </div>
+            </div>
+
+            <!-- Witness Verification Section -->
+            <div class="form-card mt-3" id="witness-section">
+                <h3>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20" style="vertical-align: middle; margin-right: 0.5rem;">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                    </svg>
+                    Witness Verification Required
+                </h3>
+                <p class="text-muted mb-3">A witness must verify this discrepancy resolution. The witness confirms they have reviewed the discrepancy and agree with the resolution.</p>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="witness_id" class="form-label required">Witness</label>
+                        <select name="witness_id" id="witness_id" class="form-control" required>
+                            <option value="">-- Select Witness --</option>
+                            {% for user in witnesses %}
+                            <option value="{{ user.id }}">{{ user.full_name }}{% if user.credentials %} ({{ user.credentials }}){% endif %}</option>
+                            {% endfor %}
+                        </select>
+                        <small class="form-text">Witness must be a different user than the one resolving</small>
+                    </div>
+                    <div class="form-group">
+                        <label for="witness_password" class="form-label required">Witness Password</label>
+                        <input type="password" name="witness_password" id="witness_password" class="form-control" required autocomplete="off">
+                        <small class="form-text">Witness must enter their password to verify</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="alert alert-danger mt-3" id="theft-warning" style="display: none;">
+                <h4>⚠️ Theft/Diversion Selected</h4>
+                <p>If you suspect theft or diversion, you must:</p>
+                <ul>
+                    <li>Report to DEA within 1 business day via DEA Form 106</li>
+                    <li>Notify appropriate law enforcement</li>
+                    <li>Document all findings and preserve evidence</li>
+                </ul>
+                <p>After resolving this discrepancy, use the <strong>Theft/Loss Report</strong> feature to file the required report.</p>
+            </div>
+
+            <div class="form-actions mt-3">
+                <button type="submit" class="btn btn-primary btn-lg">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                        <polyline points="22 4 12 14.01 9 11.01"/>
+                    </svg>
+                    Resolve Discrepancy
+                </button>
+                <a href="{{ url_for('discrepancy_report') }}" class="btn btn-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.getElementById('resolution_type').addEventListener('change', function() {
+    var warning = document.getElementById('theft-warning');
+    if (this.value === 'theft') {
+        warning.style.display = 'block';
+    } else {
+        warning.style.display = 'none';
+    }
+});
+
+function toggleWitnessSection() {
+    var adjustCheckbox = document.getElementById('adjust_inventory');
+    var witnessSection = document.getElementById('witness-section');
+    var witnessSelect = document.getElementById('witness_id');
+    var witnessPassword = document.getElementById('witness_password');
+    
+    if (adjustCheckbox.checked) {
+        witnessSection.style.display = 'block';
+        witnessSelect.required = true;
+        witnessPassword.required = true;
+    } else {
+        witnessSection.style.display = 'none';
+        witnessSelect.required = false;
+        witnessPassword.required = false;
+    }
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', toggleWitnessSection);
+</script>
+
+<style>
+.discrepancy-container {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.discrepancy-details {
+    display: grid;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.detail-card, .form-card {
+    background: white;
+    border-radius: var(--radius-lg);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    padding: 1.5rem;
+}
+
+.detail-card h3, .form-card h3 {
+    margin: 0 0 1rem 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--primary);
+    border-bottom: 1px solid var(--gray-200);
+    padding-bottom: 0.75rem;
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+
+.info-item label {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 0.25rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.info-item span {
+    font-weight: 500;
+}
+
+.count-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    text-align: center;
+}
+
+.count-box {
+    padding: 1.25rem;
+    border-radius: var(--radius-md);
+    background: var(--gray-100);
+}
+
+.count-box.expected {
+    background: var(--gray-100);
+}
+
+.count-box.actual {
+    background: rgba(45, 106, 159, 0.1);
+}
+
+.count-box.discrepancy.positive {
+    background: rgba(45, 122, 79, 0.1);
+}
+
+.count-box.discrepancy.negative {
+    background: rgba(181, 61, 61, 0.1);
+}
+
+.count-label {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.count-value {
+    display: block;
+    font-size: 2rem;
+    font-weight: 700;
+}
+
+.count-box.discrepancy.negative .count-value {
+    color: var(--danger);
+}
+
+.count-box.discrepancy.positive .count-value {
+    color: var(--success);
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+}
+
+.mt-3 {
+    margin-top: 1.5rem;
+}
+
+.mb-3 {
+    margin-bottom: 1rem;
+}
+
+#theft-warning ul {
+    margin: 0.5rem 0;
+    padding-left: 1.5rem;
+}
+
+#witness-section {
+    border: 2px solid var(--primary);
+    background: rgba(30, 77, 107, 0.02);
+}
+
+@media (max-width: 768px) {
+    .info-grid, .count-grid, .form-row {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+{% endblock %}

@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Inventory - {{ item.medication.name }}{% endblock %}
+{% block page_title %}Edit Inventory Item{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('inventory_detail', id=item.id) }}" class="btn btn-secondary btn-sm">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+    </svg>
+    Cancel
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">
+            <span class="schedule-badge schedule-{{ item.medication.schedule|lower }}">
+                {{ item.medication.schedule }}
+            </span>
+            {{ item.medication.name }}
+            {% if item.medication.strength %}({{ item.medication.strength }}){% endif %}
+        </h3>
+        <span class="text-muted">Current Qty: {{ item.current_quantity }} {{ item.unit_count or 'units' }}</span>
+    </div>
+    <div class="card-body">
+        <form method="POST">
+            <div class="form-section">
+                <h3>Lot Information</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Lot Number</label>
+                        <input type="text" name="lot_number" class="form-control" 
+                               value="{{ item.lot_number or '' }}" placeholder="Enter lot number">
+                    </div>
+                    <div class="form-group">
+                        <label>Expiration Date</label>
+                        <input type="date" name="expiration_date" class="form-control" 
+                               value="{{ item.expiration_date.strftime('%Y-%m-%d') if item.expiration_date else '' }}">
+                        {% if item.expiration_date and item.is_expired %}
+                        <small class="text-danger">This item is expired!</small>
+                        {% elif item.expiration_date and item.days_until_expiration <= 90 %}
+                        <small class="text-warning">Expires in {{ item.days_until_expiration }} days</small>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-section">
+                <h3>Source Information</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Supplier</label>
+                        <input type="text" name="supplier" class="form-control" 
+                               value="{{ item.supplier or '' }}" placeholder="Supplier name">
+                    </div>
+                    <div class="form-group">
+                        <label>Invoice Number</label>
+                        <input type="text" name="invoice_number" class="form-control" 
+                               value="{{ item.invoice_number or '' }}" placeholder="Invoice/PO number">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-section">
+                <h3>Storage</h3>
+                <div class="form-group">
+                    <label>Storage Location</label>
+                    <select name="storage_location" class="form-control">
+                        <option value="">Select location...</option>
+                        {% for location in storage_locations %}
+                        <option value="{{ location }}" {% if item.storage_location == location %}selected{% endif %}>{{ location }}</option>
+                        {% endfor %}
+                        {% if item.storage_location and item.storage_location not in storage_locations %}
+                        <option value="{{ item.storage_location }}" selected>{{ item.storage_location }} (legacy)</option>
+                        {% endif %}
+                    </select>
+                    {% if item.storage_location and item.storage_location not in storage_locations %}
+                    <small class="text-muted">Current value "{{ item.storage_location }}" was entered before dropdown was implemented. Select a new location or add this location in Settings.</small>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="form-section">
+                <h3>Notes</h3>
+                <div class="form-group">
+                    <textarea name="notes" class="form-control" rows="3" 
+                              placeholder="Additional notes about this inventory item">{{ item.notes or '' }}</textarea>
+                </div>
+            </div>
+            
+            <div class="form-actions">
+                <a href="{{ url_for('inventory_detail', id=item.id) }}" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-primary">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                        <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+                    </svg>
+                    Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card mt-3">
+    <div class="card-header">
+        <h3 class="card-title">Item Information (Read-Only)</h3>
+    </div>
+    <div class="card-body">
+        <div class="detail-grid">
+            <div class="detail-item">
+                <label>Medication</label>
+                <span>{{ item.medication.name }}</span>
+            </div>
+            <div class="detail-item">
+                <label>Schedule</label>
+                <span>{{ item.medication.schedule }}</span>
+            </div>
+            <div class="detail-item">
+                <label>NDC</label>
+                <span class="font-mono">{{ item.medication.ndc or 'N/A' }}</span>
+            </div>
+            <div class="detail-item">
+                <label>Form</label>
+                <span>{{ item.medication.form or 'N/A' }}</span>
+            </div>
+            <div class="detail-item">
+                <label>Strength</label>
+                <span>{{ item.medication.strength or 'N/A' }}</span>
+            </div>
+            <div class="detail-item">
+                <label>Date Received</label>
+                <span>{{ (item.received_date.strftime('%m/%d/%Y') if item.received_date else (item.date_received.strftime('%m/%d/%Y') if item.date_received else 'N/A')) }}</span>
+            </div>
+            <div class="detail-item">
+                <label>Quantity Received</label>
+                <span class="font-mono">{{ item.quantity_received }} {{ item.unit_count or item.medication.unit or 'units' }}</span>
+            </div>
+            <div class="detail-item">
+                <label>Current Quantity</label>
+                <span class="font-mono">{{ item.current_quantity }} {{ item.unit_count or item.medication.unit or 'units' }}</span>
+            </div>
+        </div>
+        <p class="text-muted mt-3" style="font-size: 0.85rem;">
+            <em>To adjust quantity, use the Dispense, Waste, or Daily Count functions. Medication details can be edited from the Medications page.</em>
+        </p>
+    </div>
+</div>
+
+<style>
+.detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: var(--spacing-lg);
+}
+
+.detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.detail-item label {
+    font-size: 0.75rem;
+    color: var(--gray-500);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.detail-item span {
+    font-size: 0.95rem;
+}
+</style>
+{% endblock %}

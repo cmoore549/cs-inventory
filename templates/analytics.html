@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics{% endblock %}
+{% block page_title %}Analytics Dashboard{% endblock %}
+
+{% block content %}
+<div class="stats-grid mb-3">
+    <div class="stat-card">
+        <div class="stat-icon" style="color: var(--primary);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+            </svg>
+        </div>
+        <div class="stat-content">
+            <div class="stat-value">{{ total_items }}</div>
+            <div class="stat-label">Active Inventory Items</div>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-icon" style="color: var(--info);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+            </svg>
+        </div>
+        <div class="stat-content">
+            <div class="stat-value">{{ dispensing_30|sum(attribute='total')|int if dispensing_30 else 0 }}</div>
+            <div class="stat-label">Units Dispensed (30 Days)</div>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-icon" style="color: var(--warning);">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            </svg>
+        </div>
+        <div class="stat-content">
+            <div class="stat-value">{{ waste_30 }}</div>
+            <div class="stat-label">Units Wasted (30 Days)</div>
+        </div>
+    </div>
+</div>
+
+<div class="row-2col">
+    <div class="card mb-3">
+        <div class="card-header">
+            <h3 class="card-title">Top Dispensed Medications (30 Days)</h3>
+        </div>
+        <div class="card-body">
+            {% if top_dispensed %}
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Medication</th>
+                            <th class="text-right">Quantity</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for med in top_dispensed %}
+                        <tr>
+                            <td>
+                                <span class="schedule-badge schedule-{{ med.schedule|lower }}">{{ med.schedule }}</span>
+                                {{ med.name }}{% if med.strength %} <span class="text-muted">({{ med.strength }})</span>{% endif %}
+                            </td>
+                            <td class="text-right font-mono font-bold">{{ med.total }} {{ med.unit or 'units' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted text-center">No dispensing activity in the last 30 days.</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="card mb-3">
+        <div class="card-header">
+            <h3 class="card-title">Inventory by Schedule</h3>
+        </div>
+        <div class="card-body">
+            {% if schedule_breakdown %}
+            <div class="schedule-breakdown">
+                {% for item in schedule_breakdown %}
+                <div class="schedule-row">
+                    <span class="schedule-badge schedule-{{ item.schedule|lower }}">{{ item.schedule }}</span>
+                    <div class="schedule-bar-container">
+                        <div class="schedule-bar schedule-{{ item.schedule|lower }}" 
+                             style="width: {{ (item.quantity / (schedule_breakdown|sum(attribute='quantity')) * 100) if schedule_breakdown|sum(attribute='quantity') > 0 else 0 }}%;"></div>
+                    </div>
+                    <span class="schedule-stats">
+                        <strong>{{ '%g'|format(item.quantity) }}</strong> units
+                        <small class="text-muted">({{ item.items }} items)</small>
+                    </span>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-muted text-center">No inventory data available.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Dispensing Trend (Last 30 Days)</h3>
+    </div>
+    <div class="card-body">
+        {% if dispensing_30 %}
+        <div class="chart-container">
+            <canvas id="dispensingChart"></canvas>
+        </div>
+        {% else %}
+        <p class="text-muted text-center">No dispensing activity to display.</p>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--spacing-md);
+}
+.stat-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: var(--spacing-lg);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+.stat-icon {
+    flex-shrink: 0;
+}
+.stat-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    line-height: 1;
+}
+.stat-label {
+    font-size: 0.875rem;
+    color: var(--text-muted);
+}
+.row-2col {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: var(--spacing-md);
+}
+.schedule-breakdown {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+.schedule-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+.schedule-bar-container {
+    flex: 1;
+    height: 24px;
+    background: var(--gray-100);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+.schedule-bar {
+    height: 100%;
+    transition: width 0.3s;
+}
+.schedule-bar.schedule-ii { background: var(--schedule-ii); }
+.schedule-bar.schedule-iii { background: var(--schedule-iii); }
+.schedule-bar.schedule-iv { background: var(--schedule-iv); }
+.schedule-bar.schedule-v { background: var(--schedule-v); }
+.schedule-stats {
+    min-width: 120px;
+    text-align: right;
+}
+.chart-container {
+    height: 300px;
+}
+</style>
+
+{% if dispensing_30 %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const ctx = document.getElementById('dispensingChart').getContext('2d');
+    
+    const data = {{ dispensing_30|tojson|safe }};
+    const labels = data.map(d => d.date);
+    const values = data.map(d => d.total);
+    
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Units Dispensed',
+                data: values,
+                borderColor: '#2d6a9f',
+                backgroundColor: 'rgba(45, 106, 159, 0.1)',
+                fill: true,
+                tension: 0.3
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+});
+</script>
+{% endif %}
+{% endblock %}

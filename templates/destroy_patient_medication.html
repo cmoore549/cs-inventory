@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}Destroy - {{ patient_med.patient_name }}{% endblock %}
+{% block page_title %}Destroy Patient Medication{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">
+            <span class="schedule-badge schedule-{{ patient_med.medication.schedule|lower }}">{{ patient_med.medication.schedule }}</span>
+            {{ patient_med.medication.name }}
+        </h3>
+        <span class="quantity-display quantity-ok">{{ patient_med.quantity_remaining }} {{ patient_med.unit }} to destroy</span>
+    </div>
+    <div class="card-body">
+        <div class="patient-info-bar mb-3">
+            <strong>Patient:</strong> {{ patient_med.patient_name }} 
+            <span class="text-muted">| DOB: {{ patient_med.patient_dob.strftime('%m/%d/%Y') }}</span>
+        </div>
+        
+        <div class="alert alert-danger mb-3">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            <div>
+                <strong>Warning:</strong> This will destroy all remaining medication ({{ patient_med.quantity_remaining }} {{ patient_med.unit }}) and mark this record as destroyed. This action cannot be undone. A witness is required.
+            </div>
+        </div>
+        
+        <form method="POST">
+            <div class="form-group">
+                <label class="required">Witness</label>
+                <select name="witness_id" class="form-control" required>
+                    <option value="">-- Select Witness --</option>
+                    {% for user in users %}
+                    <option value="{{ user.id }}">{{ user.full_name }}{% if user.credentials %} ({{ user.credentials }}){% endif %}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label class="required">Reason for Destruction</label>
+                <select name="destruction_reason" class="form-control" required>
+                    <option value="">-- Select Reason --</option>
+                    <option value="Medication expired">Medication expired</option>
+                    <option value="Patient deceased">Patient deceased</option>
+                    <option value="Patient discharged - medication not needed">Patient discharged - medication not needed</option>
+                    <option value="Order discontinued">Order discontinued</option>
+                    <option value="Contaminated/Compromised">Contaminated/Compromised</option>
+                    <option value="Regulatory compliance">Regulatory compliance</option>
+                    <option value="Other">Other (specify in notes)</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>Additional Notes</label>
+                <textarea name="notes" class="form-control" rows="3" placeholder="Document destruction method and any additional details"></textarea>
+            </div>
+            
+            <div class="form-actions">
+                <a href="{{ url_for('patient_medication_detail', id=patient_med.id) }}" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-danger" onclick="return confirm('Are you sure you want to destroy {{ patient_med.quantity_remaining }} {{ patient_med.unit }}? This cannot be undone.')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                        <polyline points="3 6 5 6 21 6"/>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                        <line x1="10" y1="11" x2="10" y2="17"/>
+                        <line x1="14" y1="11" x2="14" y2="17"/>
+                    </svg>
+                    Destroy All Remaining
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.patient-info-bar {
+    padding: 0.75rem 1rem;
+    background: var(--bg-dark);
+    border-radius: var(--radius);
+}
+</style>
+{% endblock %}
