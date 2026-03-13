@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block title %}Audit Log{% endblock %}
+{% block page_title %}Audit Log{% endblock %}
+
+{% block header_actions %}
+<button onclick="window.print()" class="btn btn-primary btn-sm">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+        <rect x="6" y="14" width="12" height="8"/>
+    </svg>
+    Print Report
+</button>
+<a href="{{ url_for('export_report', type='audit_log', start_date=start_date or '', end_date=end_date or '', action=action or '', format='pdf') }}" class="btn btn-outline btn-sm">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+    </svg>
+    Export PDF
+</a>
+{% endblock %}
+
+{% block content %}
+<style>
+.action-badge { display: inline-block; padding: 0.2rem 0.5rem; border-radius: var(--radius-sm); font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
+.action-login { background: rgba(45, 122, 79, 0.15); color: var(--success); }
+.action-logout { background: rgba(108, 117, 125, 0.15); color: var(--gray-600); }
+.action-dispense { background: rgba(45, 106, 159, 0.15); color: var(--info); }
+.action-waste { background: rgba(181, 137, 0, 0.15); color: var(--warning); }
+.action-receive_inventory { background: rgba(45, 122, 79, 0.15); color: var(--success); }
+.action-daily_count, .action-physical_inventory, .action-complete_physical_inventory { background: rgba(111, 66, 193, 0.15); color: #6f42c1; }
+.action-physical_inventory_adjust { background: rgba(220, 53, 69, 0.15); color: var(--danger); }
+.action-void_transaction { background: rgba(220, 53, 69, 0.15); color: var(--danger); }
+
+.pagination { display: flex; align-items: center; justify-content: center; gap: 1rem; }
+.pagination-info { color: var(--text-muted); }
+
+@media print {
+    .no-print, form, .pagination { display: none !important; }
+    body { background: white !important; }
+    .card { border: none !important; box-shadow: none !important; }
+    table { font-size: 9pt !important; width: 100% !important; }
+    th, td { padding: 4px 6px !important; }
+    .print-header { display: block !important; }
+}
+</style>
+
+<div class="print-header" style="display: none;">
+    <h2 style="margin: 0 0 0.25rem 0;">Magnolia Health PLLC</h2>
+    <h3 style="margin: 0 0 0.5rem 0;">Audit Log Report</h3>
+    <p style="margin: 0; font-size: 0.9rem; color: #666;">
+        {% if start_date or end_date %}Date Range: {{ start_date or 'Beginning' }} to {{ end_date or 'Present' }}{% else %}All Dates{% endif %}
+        {% if action %}| Action: {{ action|replace('_', ' ')|title }}{% endif %}
+    </p>
+    <hr style="margin: 0.5rem 0;">
+</div>
+
+<div class="card mb-3 no-print">
+    <div class="card-body">
+        <form method="GET" class="search-bar">
+            <div class="filter-group" style="flex-wrap: wrap;">
+                <div class="form-group" style="margin-bottom:0;">
+                    <input type="date" name="start_date" class="form-control" value="{{ start_date or '' }}" placeholder="Start Date">
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <input type="date" name="end_date" class="form-control" value="{{ end_date or '' }}" placeholder="End Date">
+                </div>
+                <select name="action" class="form-control" style="width:auto;">
+                    <option value="">All Actions</option>
+                    <option value="login" {% if action == 'login' %}selected{% endif %}>Login</option>
+                    <option value="logout" {% if action == 'logout' %}selected{% endif %}>Logout</option>
+                    <option value="dispense" {% if action == 'dispense' %}selected{% endif %}>Dispense</option>
+                    <option value="waste" {% if action == 'waste' %}selected{% endif %}>Waste</option>
+                    <option value="receive" {% if action == 'receive' %}selected{% endif %}>Receive</option>
+                    <option value="count" {% if action == 'count' %}selected{% endif %}>Count</option>
+                    <option value="verify" {% if action == 'verify' %}selected{% endif %}>Verify</option>
+                    <option value="adjust" {% if action == 'adjust' %}selected{% endif %}>Adjust</option>
+                </select>
+                <select name="user_id" class="form-control" style="width:auto;">
+                    <option value="">All Users</option>
+                    {% for user in users %}
+                    <option value="{{ user.id }}" {% if user_id == user.id|string %}selected{% endif %}>{{ user.full_name }}</option>
+                    {% endfor %}
+                </select>
+                <button type="submit" class="btn btn-secondary">Filter</button>
+                {% if start_date or end_date or action or user_id %}
+                <a href="{{ url_for('audit_log') }}" class="btn btn-outline">Clear</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Activity Log</h3>
+        <span class="text-muted">{{ logs.total }} entries</span>
+    </div>
+    <div class="card-body">
+        {% if logs.items %}
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Timestamp</th>
+                        <th>User</th>
+                        <th>Action</th>
+                        <th>Details</th>
+                        <th>IP Address</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs.items %}
+                    <tr>
+                        <td class="font-mono" style="white-space:nowrap;">
+                            {{ log.timestamp.strftime('%m/%d/%Y %H:%M:%S') }}
+                        </td>
+                        <td>{{ log.user.full_name if log.user else 'System' }}</td>
+                        <td>
+                            <span class="action-badge action-{{ log.action }}">{{ log.action|title }}</span>
+                        </td>
+                        <td style="max-width: 400px;">
+                            {{ log.details }}
+                            {% if log.medication_name %}
+                            <br><small class="text-muted">Medication: {{ log.medication_name }}</small>
+                            {% endif %}
+                        </td>
+                        <td class="font-mono text-muted">{{ log.ip_address or '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        {% if logs.pages > 1 %}
+        <div class="pagination mt-3">
+            {% if logs.has_prev %}
+            <a href="{{ url_for('audit_log', page=logs.prev_num, start_date=start_date, end_date=end_date, action=action, user_id=user_id) }}" class="btn btn-outline btn-sm">&laquo; Previous</a>
+            {% endif %}
+            <span class="pagination-info">Page {{ logs.page }} of {{ logs.pages }}</span>
+            {% if logs.has_next %}
+            <a href="{{ url_for('audit_log', page=logs.next_num, start_date=start_date, end_date=end_date, action=action, user_id=user_id) }}" class="btn btn-outline btn-sm">Next &raquo;</a>
+            {% endif %}
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+            </svg>
+            <h3>No Log Entries Found</h3>
+            <p>{% if start_date or end_date or action or user_id %}Try adjusting your filters.{% else %}Activity will be logged here.{% endif %}</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+}
+.pagination-info {
+    color: var(--text-muted);
+}
+</style>
+{% endblock %}

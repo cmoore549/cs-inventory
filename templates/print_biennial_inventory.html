@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Biennial Inventory - {{ inventory.inventory_date.strftime('%m/%d/%Y') }}</title>
+    <style>
+        @page {
+            size: letter portrait;
+            margin: 0.3in;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 8pt;
+            line-height: 1.2;
+            color: #000;
+            padding: 0.3in;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 8pt;
+            border-bottom: 2pt solid #000;
+            padding-bottom: 6pt;
+        }
+
+        .header h1 {
+            font-size: 12pt;
+            margin-bottom: 2pt;
+        }
+
+        .header h2 {
+            font-size: 10pt;
+            font-weight: normal;
+        }
+
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8pt;
+            padding: 6pt;
+            background: #f5f5f5;
+            border: 1pt solid #ccc;
+        }
+
+        .info-block {
+            flex: 1;
+        }
+
+        .info-block strong {
+            display: block;
+            font-size: 7pt;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 1pt;
+        }
+
+        .info-block span {
+            font-size: 9pt;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 7pt;
+            margin-bottom: 8pt;
+        }
+
+        th, td {
+            border: 0.5pt solid #000;
+            padding: 2pt 3pt;
+            text-align: left;
+        }
+
+        th {
+            background: #e0e0e0;
+            font-weight: bold;
+            font-size: 7pt;
+        }
+
+        .schedule-header {
+            font-size: 8pt;
+            font-weight: bold;
+            padding: 3pt 5pt;
+            margin-bottom: 2pt;
+            background: #d0d0d0;
+        }
+
+        .schedule-ii {
+            background: #ffdddd;
+        }
+
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+
+        .certification {
+            margin-top: 10pt;
+            padding: 8pt;
+            border: 1.5pt solid #000;
+            background: #f9f9f9;
+        }
+
+        .certification h3 {
+            font-size: 9pt;
+            margin-bottom: 6pt;
+            text-align: center;
+            text-transform: uppercase;
+        }
+
+        .certification p {
+            font-size: 8pt;
+            margin-bottom: 8pt;
+            text-align: center;
+        }
+
+        .digital-signatures {
+            display: flex;
+            justify-content: space-between;
+            gap: 20pt;
+        }
+
+        .signature-block {
+            flex: 1;
+            padding: 6pt;
+            border: 1pt solid #999;
+            background: #fff;
+        }
+
+        .signature-block .sig-label {
+            font-size: 7pt;
+            color: #666;
+            text-transform: uppercase;
+            margin-bottom: 3pt;
+        }
+
+        .signature-block .sig-name {
+            font-size: 10pt;
+            font-weight: bold;
+            color: #000;
+        }
+
+        .signature-block .sig-title {
+            font-size: 8pt;
+            color: #333;
+        }
+
+        .signature-block .sig-time {
+            font-size: 7pt;
+            color: #666;
+            margin-top: 3pt;
+            font-style: italic;
+        }
+
+        .digital-seal {
+            text-align: center;
+            margin-top: 4pt;
+            padding: 2pt;
+            background: #e8f5e9;
+            border: 1pt solid #4caf50;
+            font-size: 7pt;
+            color: #2e7d32;
+        }
+
+        .footer {
+            margin-top: 8pt;
+            padding-top: 4pt;
+            border-top: 1pt solid #000;
+            font-size: 6pt;
+            text-align: center;
+            color: #666;
+        }
+
+        .no-print {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+        }
+
+        .print-button {
+            padding: 10px 20px;
+            background: #1e4d6b;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .print-button:hover {
+            background: #16384f;
+        }
+
+        @media print {
+            body {
+                padding: 0;
+            }
+            .no-print {
+                display: none !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="no-print">
+        <button class="print-button" onclick="window.print()">🖨️ Print Report</button>
+    </div>
+
+    <div class="header">
+        <h1>CONTROLLED SUBSTANCE BIENNIAL INVENTORY</h1>
+        <h2>Magnolia Health PLLC | DEA Required Inventory (21 CFR 1304.11)</h2>
+    </div>
+
+    <div class="info-row">
+        <div class="info-block">
+            <strong>Inventory Date</strong>
+            <span>{{ inventory.inventory_date.strftime('%B %d, %Y') }}</span>
+        </div>
+        <div class="info-block">
+            <strong>Start Time</strong>
+            <span>{{ inventory.start_time.strftime('%I:%M %p') if inventory.start_time else 'N/A' }}</span>
+        </div>
+        <div class="info-block">
+            <strong>Conducted By</strong>
+            <span>{{ inventory.conducted_by.full_name }}</span>
+        </div>
+        <div class="info-block">
+            <strong>Witness</strong>
+            <span>{{ inventory.witness.full_name if inventory.witness else 'N/A' }}</span>
+        </div>
+        <div class="info-block">
+            <strong>Status</strong>
+            <span>{{ 'COMPLETED' if inventory.is_complete else 'DRAFT' }}</span>
+        </div>
+    </div>
+
+    {% set schedule_ii_items = inventory.items|selectattr('schedule', 'equalto', 'II')|list %}
+    {% set other_items = inventory.items|rejectattr('schedule', 'equalto', 'II')|list %}
+
+    {% if schedule_ii_items %}
+    <div class="schedule-header schedule-ii">SCHEDULE II (Exact Count Required) - {{ schedule_ii_items|length }} item(s)</div>
+    <table>
+        <thead>
+            <tr>
+                <th>Drug Name</th>
+                <th>Strength</th>
+                <th>Form</th>
+                <th>Lot #</th>
+                <th>Exp</th>
+                <th class="text-right">Qty</th>
+                <th>Unit</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in schedule_ii_items %}
+            <tr>
+                <td>{{ item.drug_name }}</td>
+                <td>{{ item.strength or '-' }}</td>
+                <td>{{ item.form or '-' }}</td>
+                <td>{{ item.lot_number or '-' }}</td>
+                <td>{{ item.expiration_date.strftime('%m/%y') if item.expiration_date else '-' }}</td>
+                <td class="text-right"><strong>{{ '%g'|format(item.quantity_counted) }}</strong></td>
+                <td>{{ item.unit or 'units' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    {% if other_items %}
+    <div class="schedule-header">SCHEDULE III-V - {{ other_items|length }} item(s)</div>
+    <table>
+        <thead>
+            <tr>
+                <th>Drug Name</th>
+                <th class="text-center">Sch</th>
+                <th>Strength</th>
+                <th>Form</th>
+                <th>Lot #</th>
+                <th>Exp</th>
+                <th class="text-right">Qty</th>
+                <th>Unit</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in other_items %}
+            <tr>
+                <td>{{ item.drug_name }}</td>
+                <td class="text-center">{{ item.schedule }}</td>
+                <td>{{ item.strength or '-' }}</td>
+                <td>{{ item.form or '-' }}</td>
+                <td>{{ item.lot_number or '-' }}</td>
+                <td>{{ item.expiration_date.strftime('%m/%y') if item.expiration_date else '-' }}</td>
+                <td class="text-right"><strong>{{ '%g'|format(item.quantity_counted) }}</strong></td>
+                <td>{{ item.unit or 'units' }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    <div class="certification">
+        <h3>Certification & Digital Signatures</h3>
+        <p>I certify that this inventory is an accurate accounting of all controlled substances on hand at the time and date indicated.</p>
+        
+        <div class="digital-signatures">
+            <div class="signature-block">
+                <div class="sig-label">Inventory Conducted By</div>
+                <div class="sig-name">{{ inventory.conducted_by.full_name }}</div>
+                <div class="sig-title">{{ inventory.conducted_by.role|title }}</div>
+                {% if inventory.is_complete and inventory.completed_at %}
+                <div class="sig-time">Digitally signed: {{ inventory.completed_at.strftime('%m/%d/%Y at %I:%M %p') }}</div>
+                {% endif %}
+            </div>
+            
+            <div class="signature-block">
+                <div class="sig-label">Witness</div>
+                {% if inventory.witness %}
+                <div class="sig-name">{{ inventory.witness.full_name }}</div>
+                <div class="sig-title">{{ inventory.witness.role|title }}</div>
+                {% if inventory.is_complete and inventory.completed_at %}
+                <div class="sig-time">Digitally signed: {{ inventory.completed_at.strftime('%m/%d/%Y at %I:%M %p') }}</div>
+                {% endif %}
+                {% else %}
+                <div class="sig-name" style="color: #999;">No witness assigned</div>
+                {% endif %}
+            </div>
+        </div>
+        
+        {% if inventory.is_complete %}
+        <div class="digital-seal">
+            ✓ DIGITALLY VERIFIED | Completed: {{ inventory.completed_at.strftime('%B %d, %Y at %I:%M %p') }} | 
+            Total Items: {{ schedule_ii_items|length + other_items|length }} | 
+            Record ID: BI-{{ inventory.id }}-{{ inventory.inventory_date.strftime('%Y%m%d') }}
+        </div>
+        {% endif %}
+    </div>
+
+    {% if inventory.notes %}
+    <div style="margin-top: 6pt; padding: 4pt; border: 1pt solid #ccc; font-size: 7pt;">
+        <strong>Notes:</strong> {{ inventory.notes }}
+    </div>
+    {% endif %}
+
+    <div class="footer">
+        Retain for minimum 2 years per DEA regulations (21 CFR 1304.04) | 
+        Generated: {{ now.strftime('%m/%d/%Y %I:%M %p') }} | 
+        Magnolia Health PLLC Controlled Substance Inventory System
+    </div>
+</body>
+</html>

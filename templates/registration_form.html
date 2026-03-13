@@ -1,0 +1,331 @@
+{% extends "base.html" %}
+
+{% block title %}{{ 'Edit Registration' if registration else 'Add Registration' }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="header-content">
+        <h1>{{ 'Edit Registration' if registration else 'Add Registration' }}</h1>
+        <p class="subtitle">{{ 'Update registration information' if registration else 'Track a new DEA or NC-DCU registration' }}</p>
+    </div>
+    <div class="header-actions">
+        <a href="{{ url_for('manage_registrations') }}" class="btn btn-secondary">
+            <i class="icon">←</i> Back to Registrations
+        </a>
+    </div>
+</div>
+
+<div class="form-container">
+    <form method="POST" action="{{ url_for('edit_registration', id=registration.id) if registration else url_for('add_registration') }}" 
+          enctype="multipart/form-data">
+        <div class="form-card">
+            <h3>Registration Information</h3>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="registration_type">Registration Type *</label>
+                    <select name="registration_type" id="registration_type" required>
+                        <option value="">-- Select Type --</option>
+                        <option value="dea" {% if registration and registration.registration_type == 'dea' %}selected{% endif %}>
+                            DEA Registration
+                        </option>
+                        <option value="nc_dcu" {% if registration and registration.registration_type == 'nc_dcu' %}selected{% endif %}>
+                            NC-DCU Registration
+                        </option>
+                        <option value="state" {% if registration and registration.registration_type == 'state' %}selected{% endif %}>
+                            Other State Registration
+                        </option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="registration_number">Registration Number *</label>
+                    <input type="text" name="registration_number" id="registration_number" required
+                           value="{{ registration.registration_number if registration else '' }}"
+                           placeholder="Enter registration number">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="registrant_name">Registrant Name</label>
+                    <input type="text" name="registrant_name" id="registrant_name"
+                           value="{{ registration.registrant_name if registration else '' }}"
+                           placeholder="Individual name on registration">
+                    <small class="form-help">For individual provider registrations.</small>
+                </div>
+                <div class="form-group">
+                    <label for="business_name">Business Name</label>
+                    <input type="text" name="business_name" id="business_name"
+                           value="{{ registration.business_name if registration else 'Magnolia Health PLLC' }}"
+                           placeholder="Business/Practice name">
+                    <small class="form-help">For practice-level registrations.</small>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="issue_date">Issue Date</label>
+                    <input type="date" name="issue_date" id="issue_date"
+                           value="{{ registration.issue_date.strftime('%Y-%m-%d') if registration and registration.issue_date else '' }}">
+                </div>
+                <div class="form-group">
+                    <label for="expiration_date">Expiration Date *</label>
+                    <input type="date" name="expiration_date" id="expiration_date" required
+                           value="{{ registration.expiration_date.strftime('%Y-%m-%d') if registration and registration.expiration_date else '' }}">
+                </div>
+            </div>
+        </div>
+
+        <div class="form-card">
+            <h3>Schedules Authorized</h3>
+            <p class="form-description">Select which controlled substance schedules this registration authorizes handling.</p>
+            
+            <div class="schedule-checkboxes">
+                <label class="checkbox-card">
+                    <input type="checkbox" name="schedules" value="II"
+                           {% if registration and 'II' in (registration.schedules or '') %}checked{% endif %}>
+                    <span class="schedule-label">Schedule II</span>
+                    <span class="schedule-examples">Oxycodone, Morphine, Fentanyl, Adderall</span>
+                </label>
+                <label class="checkbox-card">
+                    <input type="checkbox" name="schedules" value="III"
+                           {% if registration and 'III' in (registration.schedules or '') %}checked{% endif %}>
+                    <span class="schedule-label">Schedule III</span>
+                    <span class="schedule-examples">Buprenorphine, Testosterone, Ketamine</span>
+                </label>
+                <label class="checkbox-card">
+                    <input type="checkbox" name="schedules" value="IV"
+                           {% if registration and 'IV' in (registration.schedules or '') %}checked{% endif %}>
+                    <span class="schedule-label">Schedule IV</span>
+                    <span class="schedule-examples">Benzodiazepines, Zolpidem, Tramadol</span>
+                </label>
+                <label class="checkbox-card">
+                    <input type="checkbox" name="schedules" value="V"
+                           {% if registration and 'V' in (registration.schedules or '') %}checked{% endif %}>
+                    <span class="schedule-label">Schedule V</span>
+                    <span class="schedule-examples">Pregabalin, Low-dose codeine preparations</span>
+                </label>
+            </div>
+        </div>
+
+        <div class="form-card">
+            <h3>Registration Document</h3>
+            <p class="form-description">Upload a copy of the registration certificate for your records.</p>
+            
+            {% if registration and registration.document %}
+            <div class="current-document">
+                <div class="doc-info">
+                    <span class="doc-icon">📄</span>
+                    <div>
+                        <strong>{{ registration.document.original_filename }}</strong><br>
+                        <small class="text-muted">Uploaded {{ registration.document.uploaded_at.strftime('%m/%d/%Y') }}</small>
+                    </div>
+                </div>
+                <div class="doc-actions">
+                    <a href="{{ url_for('view_document', id=registration.document.id) }}" class="btn btn-secondary btn-sm" target="_blank">
+                        View
+                    </a>
+                    <label class="btn btn-secondary btn-sm">
+                        Replace
+                        <input type="file" name="document" style="display: none;" accept=".pdf,.png,.jpg,.jpeg">
+                    </label>
+                </div>
+            </div>
+            {% else %}
+            <div class="form-group">
+                <input type="file" name="document" id="document" accept=".pdf,.png,.jpg,.jpeg">
+                <small class="form-help">Upload PDF or image file of the registration certificate</small>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="form-card">
+            <h3>Notes</h3>
+            
+            <div class="form-group">
+                <label for="notes">Additional Notes</label>
+                <textarea name="notes" id="notes" rows="3"
+                    placeholder="Any additional notes about this registration...">{{ registration.notes if registration else '' }}</textarea>
+            </div>
+        </div>
+
+        {% if registration %}
+        <div class="form-card">
+            <h3>Status</h3>
+            
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" name="is_active" id="is_active"
+                           {% if registration.is_active %}checked{% endif %}>
+                    Registration is active
+                </label>
+                <small class="form-help">Uncheck if this registration has been replaced or revoked.</small>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">
+                {{ 'Save Changes' if registration else 'Add Registration' }}
+            </button>
+            <a href="{{ url_for('manage_registrations') }}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+
+<style>
+.form-container {
+    max-width: 700px;
+}
+
+.form-card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.form-card h3 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.1rem;
+    color: #1e4d6b;
+    border-bottom: 1px solid #e9ecef;
+    padding-bottom: 0.5rem;
+}
+
+.form-description {
+    color: #6c757d;
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+.form-help {
+    display: block;
+    margin-top: 0.25rem;
+    color: #6c757d;
+    font-size: 0.85rem;
+}
+
+.schedule-checkboxes {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+
+@media (max-width: 600px) {
+    .schedule-checkboxes {
+        grid-template-columns: 1fr;
+    }
+}
+
+.checkbox-card {
+    display: flex;
+    flex-direction: column;
+    padding: 1rem;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.checkbox-card:hover {
+    border-color: #1e4d6b;
+}
+
+.checkbox-card input:checked + .schedule-label {
+    color: #1e4d6b;
+    font-weight: 600;
+}
+
+.checkbox-card:has(input:checked) {
+    border-color: #1e4d6b;
+    background: #f0f7ff;
+}
+
+.checkbox-card input {
+    margin-bottom: 0.5rem;
+}
+
+.schedule-label {
+    font-weight: 500;
+    margin-bottom: 0.25rem;
+}
+
+.schedule-examples {
+    font-size: 0.8rem;
+    color: #6c757d;
+}
+
+.current-document {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.doc-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.doc-icon {
+    font-size: 2rem;
+}
+
+.doc-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.btn-sm {
+    padding: 0.35rem 0.75rem;
+    font-size: 0.85rem;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+}
+
+.checkbox-label input {
+    width: auto;
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+}
+</style>
+{% endblock %}

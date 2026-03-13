@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+
+{% block title %}Biennial Inventory{% endblock %}
+{% block page_title %}Biennial Inventory{% endblock %}
+
+{% block header_actions %}
+{% if not active_inventory %}
+<a href="{{ url_for('new_biennial_inventory') }}" class="btn btn-primary btn-sm">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+    </svg>
+    Start New Biennial Inventory
+</a>
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<!-- DEA Information -->
+<div class="alert alert-info mb-3">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/>
+        <line x1="12" y1="8" x2="12.01" y2="8"/>
+    </svg>
+    <div>
+        <strong>DEA Requirement (21 CFR 1304.11):</strong> 
+        Every registrant must take an inventory of all controlled substances on hand every two years. 
+        <strong>Schedule II substances require exact counts</strong>; Schedule III-V may be estimated 
+        if container holds >1,000 dosage units. Records must be retained for at least 2 years.
+    </div>
+</div>
+
+{% if active_inventory %}
+<!-- Active Biennial Inventory -->
+<div class="card mb-3">
+    <div class="card-header">
+        <h3 class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+            </svg>
+            Active Biennial Inventory
+        </h3>
+        <div class="btn-group">
+            <a href="{{ url_for('edit_biennial_inventory', id=active_inventory.id) }}" class="btn btn-primary btn-sm">
+                Continue Editing
+            </a>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="info-grid">
+            <div class="info-item">
+                <span class="info-label">Started:</span>
+                <span>{{ active_inventory.inventory_date.strftime('%B %d, %Y') }}{% if active_inventory.inventory_time %} at {{ active_inventory.inventory_time }}{% endif %}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Started By:</span>
+                <span>{{ active_inventory.conductor.full_name }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Items:</span>
+                <span>{{ active_inventory.items.count() }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Status:</span>
+                <span class="status-badge status-pending">In Progress</span>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Past Inventories -->
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Biennial Inventory History</h3>
+    </div>
+    <div class="card-body">
+        {% if past_inventories %}
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Performed By</th>
+                        <th>Witness</th>
+                        <th>Items Counted</th>
+                        <th>Schedule II</th>
+                        <th>Schedule III-V</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for inv in past_inventories %}
+                    <tr>
+                        <td>{{ inv.inventory_date.strftime('%B %d, %Y') }}</td>
+                        <td>{{ inv.conductor.full_name }}</td>
+                        <td>{{ inv.witness.full_name if inv.witness else '-' }}</td>
+                        <td>{{ inv.items.count() }}</td>
+                        <td class="font-mono">{{ inv.items.filter_by(schedule='II').count() }}</td>
+                        <td class="font-mono">{{ inv.items.count() - inv.items.filter_by(schedule='II').count() }}</td>
+                        <td>
+                            {% if inv.is_complete %}
+                            <span class="status-badge status-success">Complete</span>
+                            {% else %}
+                            <span class="status-badge status-pending">In Progress</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group">
+                                {% if inv.is_complete %}
+                                <a href="{{ url_for('view_biennial_inventory', id=inv.id) }}" class="btn btn-outline btn-sm">View</a>
+                                <a href="{{ url_for('print_biennial_inventory', id=inv.id) }}" class="btn btn-outline btn-sm" target="_blank">
+                                    Print
+                                </a>
+                                {% else %}
+                                <a href="{{ url_for('edit_biennial_inventory', id=inv.id) }}" class="btn btn-primary btn-sm">
+                                    Continue
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+            </svg>
+            <h3>No Biennial Inventories on Record</h3>
+            <p>DEA requires a biennial inventory every 2 years. Start your first inventory now.</p>
+            <a href="{{ url_for('new_biennial_inventory') }}" class="btn btn-primary">
+                Start Biennial Inventory
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if last_inventory %}
+<div class="card mt-3">
+    <div class="card-body">
+        <div class="compliance-status">
+            {% set days_since = (now.date() - last_inventory.inventory_date).days %}
+            {% set days_until_due = 730 - days_since %}
+            
+            <div class="compliance-indicator {% if days_until_due <= 0 %}overdue{% elif days_until_due <= 90 %}due-soon{% else %}compliant{% endif %}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                    {% if days_until_due <= 0 %}
+                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>
+                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                    {% elif days_until_due <= 90 %}
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                    {% else %}
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                    <polyline points="22 4 12 14.01 9 11.01"/>
+                    {% endif %}
+                </svg>
+                <div class="compliance-text">
+                    {% if days_until_due <= 0 %}
+                    <strong>OVERDUE by {{ -days_until_due }} days</strong>
+                    <span>Last inventory: {{ last_inventory.inventory_date.strftime('%B %d, %Y') }}</span>
+                    {% elif days_until_due <= 90 %}
+                    <strong>Due in {{ days_until_due }} days</strong>
+                    <span>Last inventory: {{ last_inventory.inventory_date.strftime('%B %d, %Y') }}</span>
+                    {% else %}
+                    <strong>Compliant - {{ days_until_due }} days until next due</strong>
+                    <span>Last inventory: {{ last_inventory.inventory_date.strftime('%B %d, %Y') }}</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+
+{% block title %}{{ patient.full_name }}{% endblock %}
+{% block page_title %}Patient Details{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('patients') }}" class="btn btn-secondary btn-sm">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+    </svg>
+    Back to Patients
+</a>
+<a href="{{ url_for('edit_patient', id=patient.id) }}" class="btn btn-outline btn-sm">Edit</a>
+{% endblock %}
+
+{% block content %}
+<!-- Patient Info Card -->
+<div class="card mb-3">
+    <div class="card-header">
+        <h3 class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+            </svg>
+            {{ patient.full_name_display }}
+        </h3>
+    </div>
+    <div class="card-body">
+        <div class="detail-grid">
+            <div class="detail-item">
+                <label>Date of Birth</label>
+                <span>{{ patient.date_of_birth.strftime('%m/%d/%Y') }}</span>
+            </div>
+            <div class="detail-item">
+                <label>MRN</label>
+                <span class="font-mono">{{ patient.mrn or '-' }}</span>
+            </div>
+            <div class="detail-item">
+                <label>Phone</label>
+                <span>{{ patient.phone or '-' }}</span>
+            </div>
+            <div class="detail-item">
+                <label>Email</label>
+                <span>{{ patient.email or '-' }}</span>
+            </div>
+            <div class="detail-item">
+                <label>Address</label>
+                <span>
+                    {% if patient.address %}
+                    {{ patient.address }}<br>
+                    {{ patient.city }}{% if patient.state %}, {{ patient.state }}{% endif %} {{ patient.zip_code }}
+                    {% else %}
+                    -
+                    {% endif %}
+                </span>
+            </div>
+            <div class="detail-item">
+                <label>Insurance ID</label>
+                <span>{{ patient.insurance_id or '-' }}</span>
+            </div>
+        </div>
+        
+        {% if patient.notes %}
+        <div class="mt-3">
+            <label style="font-size:0.75rem;color:var(--text-muted);text-transform:uppercase;">Notes</label>
+            <p>{{ patient.notes }}</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Patient-Specific Medications -->
+<div class="card mb-3">
+    <div class="card-header">
+        <h3 class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                <path d="M19.5 12.5L12 20a4.82 4.82 0 0 1-7 0 4.82 4.82 0 0 1 0-7l7.5-7.5a4.82 4.82 0 0 1 7 0 4.82 4.82 0 0 1 0 7z"/>
+            </svg>
+            Patient-Specific Medications
+        </h3>
+    </div>
+    <div class="card-body">
+        {% if patient_meds %}
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Medication</th>
+                        <th>Received</th>
+                        <th>Remaining</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for med in patient_meds %}
+                    <tr>
+                        <td>
+                            <span class="schedule-badge schedule-{{ med.medication.schedule|lower }}">{{ med.medication.schedule }}</span>
+                            {{ med.medication.name }}
+                        </td>
+                        <td>{{ med.preparation_date.strftime('%m/%d/%Y') }}</td>
+                        <td class="font-mono">{{ med.quantity_remaining }} / {{ med.quantity_prepared }} {{ med.unit }}</td>
+                        <td>
+                            {% if med.status == 'active' %}
+                            <span class="status-badge status-success">Active</span>
+                            {% elif med.status == 'completed' %}
+                            <span class="status-badge status-info">Completed</span>
+                            {% else %}
+                            <span class="status-badge">{{ med.status|title }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{{ url_for('patient_medication_detail', id=med.id) }}" class="btn btn-outline btn-sm">View</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state-sm">
+            <p class="text-muted">No patient-specific medications on file.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Dispensing History -->
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+            </svg>
+            Dispensing History
+        </h3>
+    </div>
+    <div class="card-body">
+        {% if transactions %}
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Medication</th>
+                        <th>Qty</th>
+                        <th>Performed By</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tx in transactions %}
+                    <tr>
+                        <td class="font-mono">{{ tx.performed_at.strftime('%m/%d/%Y %H:%M') }}</td>
+                        <td>
+                            <span class="schedule-badge schedule-{{ tx.inventory_item.medication.schedule|lower }}">{{ tx.inventory_item.medication.schedule }}</span>
+                            {{ tx.inventory_item.medication.name }}
+                        </td>
+                        <td class="font-mono">{{ tx.quantity }} {{ tx.inventory_item.unit_count or tx.inventory_item.medication.unit or 'units' }}</td>
+                        <td>{{ tx.performer.full_name if tx.performer else '-' }}</td>
+                        <td>{{ tx.notes or '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state-sm">
+            <p class="text-muted">No dispensing history for this patient.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--spacing-lg);
+}
+.detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+.detail-item label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+.empty-state-sm {
+    padding: 1rem;
+    text-align: center;
+}
+.status-info {
+    background: rgba(45, 106, 159, 0.1);
+    color: var(--info);
+}
+</style>
+{% endblock %}

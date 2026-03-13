@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Biennial Inventory{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="header-content">
+        <h1>Edit Biennial Inventory</h1>
+        <p class="subtitle">{{ inventory.inventory_date.strftime('%B %d, %Y') }}</p>
+    </div>
+    <div class="header-actions">
+        <a href="{{ url_for('view_biennial_inventory', id=inventory.id) }}" class="btn btn-secondary">
+            <i class="icon">←</i> Back to View
+        </a>
+    </div>
+</div>
+
+<div class="biennial-form-container">
+    {% if inventory.is_completed %}
+    <div class="alert alert-danger">
+        <h4>⚠️ This inventory is completed</h4>
+        <p>Completed inventories cannot be edited. If you need to make corrections, please create a new inventory.</p>
+    </div>
+    {% else %}
+
+    <form method="POST" action="{{ url_for('edit_biennial_inventory', id=inventory.id) }}">
+        <div class="form-card">
+            <h3>Inventory Information</h3>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="inventory_date">Inventory Date *</label>
+                    <input type="date" name="inventory_date" id="inventory_date" 
+                           value="{{ inventory.inventory_date.strftime('%Y-%m-%d') }}" required>
+                </div>
+                <div class="form-group">
+                    <label for="inventory_time">Start Time *</label>
+                    <input type="time" name="inventory_time" id="inventory_time" 
+                           value="{{ inventory.start_time.strftime('%H:%M') if inventory.start_time else '' }}" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="notes">General Notes</label>
+                <textarea name="notes" id="notes" rows="3" 
+                    placeholder="Any general notes about this inventory...">{{ inventory.notes or '' }}</textarea>
+            </div>
+        </div>
+
+        <div class="form-card">
+            <h3>Inventory Items</h3>
+            <p class="form-description">
+                Update counts as needed. Schedule II items are highlighted and require exact counts.
+            </p>
+
+            {% if inventory.items %}
+            <table class="data-table inventory-count-table">
+                <thead>
+                    <tr>
+                        <th>Medication</th>
+                        <th>Schedule</th>
+                        <th>Lot #</th>
+                        <th>Expiration</th>
+                        <th>Count Method</th>
+                        <th>Quantity Counted *</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in inventory.items %}
+                    <tr class="{% if item.schedule == 'II' %}schedule-ii-row{% endif %}">
+                        <td>
+                            <strong>{{ item.drug_name }}</strong><br>
+                            <small class="text-muted">{{ item.strength }} {{ item.form }}</small>
+                            <input type="hidden" name="item_ids[]" value="{{ item.id }}">
+                        </td>
+                        <td>
+                            <span class="schedule-badge schedule-{{ item.schedule|lower }}">
+                                {{ item.schedule }}
+                            </span>
+                        </td>
+                        <td>{{ item.lot_number or '-' }}</td>
+                        <td>{{ item.expiration_date.strftime('%m/%d/%Y') if item.expiration_date else '-' }}</td>
+                        <td>
+                            {% if item.schedule == 'II' %}
+                            <span class="method-badge exact">Exact (Required)</span>
+                            <input type="hidden" name="count_method_{{ item.id }}" value="exact">
+                            {% else %}
+                            <select name="count_method_{{ item.id }}" class="count-method-select">
+                                <option value="exact" {% if item.count_method == 'exact' %}selected{% endif %}>Exact Count</option>
+                                <option value="estimated" {% if item.count_method == 'estimated' %}selected{% endif %}>Estimated</option>
+                            </select>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <input type="number" name="count_{{ item.id }}" 
+                                   class="count-input" min="0" required
+                                   value="{{ item.quantity_counted }}">
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="empty-state">
+                <p>No items in this inventory.</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="form-card">
+            <h3>Witness Information</h3>
+            <p class="form-description">
+                A witness is required to verify the accuracy of this inventory.
+            </p>
+
+            <div class="form-group">
+                <label for="witness_id">Witness *</label>
+                <select name="witness_id" id="witness_id" required>
+                    <option value="">-- Select Witness --</option>
+                    {% for user in witnesses %}
+                    <option value="{{ user.id }}" {% if inventory.witness_id == user.id %}selected{% endif %}>
+                        {{ user.full_name }} ({{ user.role|title }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" name="action" value="save" class="btn btn-secondary">
+                Save Changes
+            </button>
+            <button type="submit" name="action" value="complete" class="btn btn-primary"
+                    onclick="return confirm('Are you sure you want to complete this inventory? This action cannot be undone.');">
+                Complete Inventory
+            </button>
+        </div>
+    </form>
+    {% endif %}
+</div>
+
+<style>
+.biennial-form-container {
+    max-width: 1200px;
+}
+
+.form-card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.form-card h3 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.1rem;
+    color: #1e4d6b;
+}
+
+.form-description {
+    color: #6c757d;
+    margin-bottom: 1rem;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+.inventory-count-table {
+    width: 100%;
+    margin-top: 1rem;
+}
+
+.schedule-ii-row {
+    background-color: #fff5f5 !important;
+}
+
+.method-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.method-badge.exact {
+    background: #dc3545;
+    color: white;
+}
+
+.count-method-select {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+}
+
+.count-input {
+    width: 100px;
+    padding: 0.5rem;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    text-align: center;
+    font-weight: 600;
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    padding: 1rem 0;
+}
+</style>
+{% endblock %}

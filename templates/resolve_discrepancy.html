@@ -1,0 +1,755 @@
+{% extends "base.html" %}
+
+{% block title %}Resolve Discrepancy{% endblock %}
+{% block page_title %}
+Discrepancy Investigation & Resolution
+<small class="text-muted" style="font-size: 0.5em; display: block;">DEA 21 CFR 1304 / NC DHHS Compliant</small>
+{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('discrepancy_report') }}" class="btn btn-secondary btn-sm">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+    </svg>
+    Back to Discrepancies
+</a>
+{% endblock %}
+
+{% block content %}
+<style>
+.investigation-workflow {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.5rem;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 8px;
+}
+
+.workflow-step {
+    flex: 1;
+    text-align: center;
+    padding: 0.75rem;
+    border-radius: 6px;
+    background: white;
+    border: 2px solid #e9ecef;
+}
+
+.workflow-step.active {
+    border-color: #1e4d6b;
+    background: #e8f4f8;
+}
+
+.workflow-step.completed {
+    border-color: #28a745;
+    background: #d4edda;
+}
+
+.workflow-step.pending {
+    border-color: #ffc107;
+    background: #fff8e6;
+}
+
+.workflow-step .step-number {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    line-height: 24px;
+    border-radius: 50%;
+    background: #6c757d;
+    color: white;
+    font-size: 0.8rem;
+    font-weight: bold;
+    margin-bottom: 0.25rem;
+}
+
+.workflow-step.active .step-number { background: #1e4d6b; }
+.workflow-step.completed .step-number { background: #28a745; }
+.workflow-step.pending .step-number { background: #ffc107; color: #333; }
+
+.workflow-step .step-label {
+    display: block;
+    font-size: 0.8rem;
+    color: #666;
+}
+
+.discrepancy-header {
+    display: flex;
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.discrepancy-summary {
+    flex: 2;
+    background: white;
+    border-radius: 8px;
+    padding: 1.25rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.discrepancy-variance {
+    flex: 1;
+    background: white;
+    border-radius: 8px;
+    padding: 1.25rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    text-align: center;
+}
+
+.variance-number {
+    font-size: 2.5rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.variance-number.shortage { color: #dc3545; }
+.variance-number.overage { color: #28a745; }
+
+.variance-label {
+    font-size: 0.9rem;
+    color: #666;
+    margin-top: 0.25rem;
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+}
+
+.info-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.info-item label {
+    font-size: 0.75rem;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.info-item span {
+    font-weight: 500;
+}
+
+.schedule-badge {
+    display: inline-block;
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.schedule-ii { background: #f8d7da; color: #721c24; }
+.schedule-iii { background: #fff3cd; color: #856404; }
+.schedule-iv { background: #d4edda; color: #155724; }
+.schedule-v { background: #d1ecf1; color: #0c5460; }
+
+.form-section {
+    background: white;
+    border-radius: 8px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.form-section h4 {
+    margin: 0 0 1rem 0;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #1e4d6b;
+    color: #1e4d6b;
+    font-size: 1rem;
+}
+
+.category-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+}
+
+.category-option {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.75rem;
+    border: 2px solid #e9ecef;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.category-option:hover {
+    border-color: #1e4d6b;
+    background: #f8f9fa;
+}
+
+.category-option input[type="radio"] {
+    margin-top: 0.25rem;
+}
+
+.category-option .category-info {
+    flex: 1;
+}
+
+.category-option .category-name {
+    font-weight: 600;
+    display: block;
+}
+
+.category-option .category-desc {
+    font-size: 0.8rem;
+    color: #666;
+}
+
+.category-option.theft-warning {
+    border-color: #dc3545;
+    background: #fff5f5;
+}
+
+.category-option.theft-warning .category-name {
+    color: #dc3545;
+}
+
+.alert-dea {
+    background: #f8d7da;
+    border: 2px solid #dc3545;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.alert-dea h5 {
+    color: #721c24;
+    margin: 0 0 0.5rem 0;
+}
+
+.dea-form-section {
+    background: #fff3cd;
+    border: 2px solid #ffc107;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.supervisor-review-section {
+    background: #e8f4f8;
+    border: 2px solid #1e4d6b;
+    border-radius: 8px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+}
+
+.supervisor-review-section h4 {
+    color: #1e4d6b;
+    margin: 0 0 1rem 0;
+}
+
+.timeline {
+    margin: 1rem 0;
+    padding-left: 1rem;
+    border-left: 3px solid #e9ecef;
+}
+
+.timeline-item {
+    position: relative;
+    padding-left: 1.5rem;
+    padding-bottom: 1rem;
+}
+
+.timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -1.35rem;
+    top: 0.25rem;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #1e4d6b;
+}
+
+.timeline-item .timeline-date {
+    font-size: 0.8rem;
+    color: #666;
+}
+
+.timeline-item .timeline-text {
+    font-size: 0.9rem;
+}
+
+.witness-section {
+    background: #f0f4f8;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-top: 1rem;
+}
+
+.witness-section h5 {
+    margin: 0 0 0.75rem 0;
+    font-size: 0.9rem;
+    color: #1e4d6b;
+}
+
+.btn-resolve {
+    background: #28a745;
+    color: white;
+    padding: 0.75rem 2rem;
+    font-size: 1rem;
+}
+
+.btn-resolve:hover {
+    background: #218838;
+}
+
+@media (max-width: 768px) {
+    .discrepancy-header { flex-direction: column; }
+    .category-grid { grid-template-columns: 1fr; }
+    .info-grid { grid-template-columns: 1fr; }
+}
+</style>
+
+{% if is_physical_inventory %}
+<!-- Workflow Progress Indicator -->
+<div class="investigation-workflow">
+    <div class="workflow-step {% if count.investigation_status == 'discovered' or not count.investigation_status %}active{% elif count.investigation_status in ['under_investigation', 'pending_review', 'resolved'] %}completed{% endif %}">
+        <span class="step-number">1</span>
+        <span class="step-label">Discovered</span>
+    </div>
+    <div class="workflow-step {% if count.investigation_status == 'under_investigation' %}active{% elif count.investigation_status in ['pending_review', 'resolved'] %}completed{% endif %}">
+        <span class="step-number">2</span>
+        <span class="step-label">Investigation</span>
+    </div>
+    <div class="workflow-step {% if count.investigation_status == 'pending_review' %}pending{% elif count.investigation_status == 'resolved' %}completed{% endif %}">
+        <span class="step-number">3</span>
+        <span class="step-label">Supervisor Review</span>
+    </div>
+    <div class="workflow-step {% if count.discrepancy_resolved %}completed{% endif %}">
+        <span class="step-number">4</span>
+        <span class="step-label">Resolved</span>
+    </div>
+</div>
+
+<!-- Discrepancy Summary -->
+<div class="discrepancy-header">
+    <div class="discrepancy-summary">
+        <div class="info-grid">
+            <div class="info-item">
+                <label>Medication</label>
+                <span>
+                    <span class="schedule-badge schedule-{{ medication.schedule|lower }}">{{ medication.schedule }}</span>
+                    {{ medication.name }}
+                </span>
+            </div>
+            <div class="info-item">
+                <label>Strength</label>
+                <span>{{ medication.strength or 'N/A' }}</span>
+            </div>
+            <div class="info-item">
+                <label>Lot Number</label>
+                <span class="font-mono">
+                    {% if count.inventory_item %}{{ count.inventory_item.lot_number or 'N/A' }}
+                    {% elif count.patient_medication %}{{ count.patient_medication.lot_number or 'N/A' }}{% endif %}
+                </span>
+            </div>
+            <div class="info-item">
+                <label>NDC</label>
+                <span class="font-mono">{{ medication.ndc or 'N/A' }}</span>
+            </div>
+            <div class="info-item">
+                <label>Counted By</label>
+                <span>{{ count.counter.full_name if count.counter else 'N/A' }}</span>
+            </div>
+            <div class="info-item">
+                <label>Witness</label>
+                <span>{{ count.verifier.full_name if count.verifier else 'N/A' }}</span>
+            </div>
+            <div class="info-item">
+                <label>Count Date</label>
+                <span>{{ count.physical_inventory.inventory_date.strftime('%m/%d/%Y') }}</span>
+            </div>
+            <div class="info-item">
+                <label>Days Since Discovery</label>
+                <span class="{% if count.days_since_discovery > 3 %}text-danger{% endif %}">
+                    {{ count.days_since_discovery }} day(s)
+                    {% if count.days_since_discovery > 3 %}⚠️{% endif %}
+                </span>
+            </div>
+            {% if count.is_patient_stock %}
+            <div class="info-item" style="grid-column: 1 / -1;">
+                <label>Patient</label>
+                <span>{{ count.patient_medication.patient.full_name if count.patient_medication.patient else count.patient_medication.patient_name }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="discrepancy-variance">
+        {% if count.inventory_item %}
+            {% set unit = count.inventory_item.unit_count or count.inventory_item.medication.unit or 'units' %}
+        {% elif count.patient_medication %}
+            {% set unit = count.patient_medication.unit or 'units' %}
+        {% else %}
+            {% set unit = 'units' %}
+        {% endif %}
+        
+        <div class="variance-number {% if count.discrepancy < 0 %}shortage{% else %}overage{% endif %}">
+            {% if count.discrepancy > 0 %}+{% endif %}{{ count.discrepancy|round(2) }}
+        </div>
+        <div class="variance-label">{{ unit }} {{ 'SHORTAGE' if count.discrepancy < 0 else 'OVERAGE' }}</div>
+        
+        <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #e9ecef;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+                <span>Expected:</span>
+                <span class="font-mono">{{ count.expected_quantity }} {{ unit }}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+                <span>Actual:</span>
+                <span class="font-mono">{{ count.actual_quantity }} {{ unit }}</span>
+            </div>
+        </div>
+        
+        {% if count.requires_supervisor_review %}
+        <div style="margin-top: 1rem; padding: 0.5rem; background: #fff3cd; border-radius: 4px; font-size: 0.8rem;">
+            ⚠️ Requires Supervisor Review
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- DEA Form 106 Alert for Theft/Diversion -->
+{% if count.requires_dea_report and not count.dea_report_filed %}
+<div class="alert-dea">
+    <h5>⚠️ DEA Form 106 Required</h5>
+    <p style="margin: 0;">This discrepancy has been categorized as potential theft/diversion. Per DEA regulations (21 CFR 1301.76), a DEA Form 106 must be filed within <strong>one business day</strong> of discovery.</p>
+    
+    <form method="POST" style="margin-top: 1rem; display: flex; gap: 0.5rem; align-items: flex-end;">
+        <input type="hidden" name="action" value="mark_dea_filed">
+        <div style="flex: 1;">
+            <label style="display: block; font-size: 0.8rem; margin-bottom: 0.25rem;">DEA Form 106 Report Number</label>
+            <input type="text" name="dea_report_number" class="form-control" placeholder="Enter report number" required>
+        </div>
+        <button type="submit" class="btn btn-danger">Mark Form 106 Filed</button>
+    </form>
+</div>
+{% elif count.dea_report_filed %}
+<div class="dea-form-section">
+    <strong>✓ DEA Form 106 Filed</strong><br>
+    Report #: {{ count.dea_report_number }}<br>
+    Filed: {{ count.dea_report_date.strftime('%m/%d/%Y') if count.dea_report_date else 'N/A' }}
+</div>
+{% endif %}
+
+<!-- Investigation Timeline -->
+{% if count.investigation_started_at or count.resolved_at or count.supervisor_reviewed_at %}
+<div class="form-section">
+    <h4>📋 Investigation Timeline</h4>
+    <div class="timeline">
+        <div class="timeline-item">
+            <div class="timeline-date">{{ count.counted_at.strftime('%m/%d/%Y %I:%M %p') if count.counted_at else 'Unknown' }}</div>
+            <div class="timeline-text">Discrepancy discovered during {{ count.physical_inventory.inventory_type|replace('_', ' ') }} by {{ count.counter.full_name if count.counter else 'Unknown' }}</div>
+        </div>
+        {% if count.investigation_started_at %}
+        <div class="timeline-item">
+            <div class="timeline-date">{{ count.investigation_started_at.strftime('%m/%d/%Y %I:%M %p') }}</div>
+            <div class="timeline-text">Investigation started by {{ count.investigator.full_name if count.investigator else 'Unknown' }}</div>
+        </div>
+        {% endif %}
+        {% if count.resolved_at %}
+        <div class="timeline-item">
+            <div class="timeline-date">{{ count.resolved_at.strftime('%m/%d/%Y %I:%M %p') }}</div>
+            <div class="timeline-text">Resolution submitted by {{ count.resolver.full_name if count.resolver else 'Unknown' }}</div>
+        </div>
+        {% endif %}
+        {% if count.supervisor_reviewed_at %}
+        <div class="timeline-item">
+            <div class="timeline-date">{{ count.supervisor_reviewed_at.strftime('%m/%d/%Y %I:%M %p') }}</div>
+            <div class="timeline-text">Supervisor review completed by {{ count.supervisor_reviewer.full_name if count.supervisor_reviewer else 'Unknown' }}</div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Supervisor Review Panel (for pending review items) -->
+{% if count.investigation_status == 'pending_review' and current_user.role in ['admin', 'provider'] %}
+<div class="supervisor-review-section">
+    <h4>👤 Supervisor Review Required</h4>
+    
+    <div class="info-grid" style="margin-bottom: 1rem;">
+        <div class="info-item">
+            <label>Investigation Category</label>
+            <span>{{ count.investigation_category|replace('_', ' ')|title if count.investigation_category else 'N/A' }}</span>
+        </div>
+        <div class="info-item">
+            <label>Submitted By</label>
+            <span>{{ count.resolver.full_name if count.resolver else 'Unknown' }}</span>
+        </div>
+    </div>
+    
+    <div style="margin-bottom: 1rem;">
+        <strong>Root Cause:</strong>
+        <p style="margin: 0.25rem 0; padding: 0.5rem; background: white; border-radius: 4px;">{{ count.root_cause or 'Not provided' }}</p>
+    </div>
+    
+    <div style="margin-bottom: 1rem;">
+        <strong>Corrective Action:</strong>
+        <p style="margin: 0.25rem 0; padding: 0.5rem; background: white; border-radius: 4px;">{{ count.corrective_action or 'Not provided' }}</p>
+    </div>
+    
+    {% if count.inventory_adjusted %}
+    <div style="margin-bottom: 1rem; padding: 0.5rem; background: #d4edda; border-radius: 4px;">
+        ✓ Inventory adjusted. Witnessed by {{ count.adjustment_witness.full_name if count.adjustment_witness else 'Unknown' }}
+    </div>
+    {% endif %}
+    
+    <form method="POST">
+        <input type="hidden" name="action" value="supervisor_review">
+        
+        <div class="form-group">
+            <label>Supervisor Notes</label>
+            <textarea name="supervisor_notes" class="form-control" rows="3" placeholder="Add any supervisor comments or observations..."></textarea>
+        </div>
+        
+        <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+            <button type="submit" name="approval_status" value="approve" class="btn btn-success" style="flex: 1;">
+                ✓ Approve Resolution
+            </button>
+            <button type="submit" name="approval_status" value="reject" class="btn btn-danger" style="flex: 1;">
+                ✗ Reject - Requires More Investigation
+            </button>
+        </div>
+    </form>
+</div>
+{% endif %}
+
+<!-- Resolution Form (for discovered or under_investigation status) -->
+{% if not count.discrepancy_resolved and count.investigation_status not in ['pending_review'] %}
+<form method="POST">
+    <input type="hidden" name="action" value="resolve">
+    
+    <!-- Start Investigation Button (if not started) -->
+    {% if count.investigation_status == 'discovered' or not count.investigation_status %}
+    <div class="form-section" style="text-align: center;">
+        <p>This discrepancy requires investigation and documentation per DEA 21 CFR 1304 requirements.</p>
+        <button type="submit" name="action" value="start_investigation" class="btn btn-primary">
+            🔍 Start Investigation
+        </button>
+        <p style="font-size: 0.85rem; color: #666; margin-top: 0.5rem;">
+            Or complete the investigation form below to resolve immediately.
+        </p>
+    </div>
+    {% endif %}
+    
+    <!-- Investigation Category -->
+    <div class="form-section">
+        <h4>1. Investigation Category <span class="text-danger">*</span></h4>
+        <p class="text-muted" style="font-size: 0.85rem; margin-bottom: 1rem;">
+            Select the category that best describes the cause of this discrepancy.
+        </p>
+        
+        <div class="category-grid">
+            <label class="category-option">
+                <input type="radio" name="investigation_category" value="documentation_error" required>
+                <div class="category-info">
+                    <span class="category-name">Documentation Error</span>
+                    <span class="category-desc">Paperwork or recording mistakes</span>
+                </div>
+            </label>
+            
+            <label class="category-option">
+                <input type="radio" name="investigation_category" value="counting_error">
+                <div class="category-info">
+                    <span class="category-name">Counting Error</span>
+                    <span class="category-desc">Human error during physical count</span>
+                </div>
+            </label>
+            
+            <label class="category-option">
+                <input type="radio" name="investigation_category" value="breakage_spillage">
+                <div class="category-info">
+                    <span class="category-name">Breakage / Spillage</span>
+                    <span class="category-desc">Physical loss due to breakage</span>
+                </div>
+            </label>
+            
+            <label class="category-option">
+                <input type="radio" name="investigation_category" value="system_error">
+                <div class="category-info">
+                    <span class="category-name">System Error</span>
+                    <span class="category-desc">Software or calculation issues</span>
+                </div>
+            </label>
+            
+            <label class="category-option">
+                <input type="radio" name="investigation_category" value="expired_destroyed">
+                <div class="category-info">
+                    <span class="category-name">Expired / Destroyed</span>
+                    <span class="category-desc">Removed due to expiration</span>
+                </div>
+            </label>
+            
+            <label class="category-option">
+                <input type="radio" name="investigation_category" value="variance_tolerance">
+                <div class="category-info">
+                    <span class="category-name">Variance Tolerance</span>
+                    <span class="category-desc">Minor acceptable variance</span>
+                </div>
+            </label>
+            
+            <label class="category-option theft-warning">
+                <input type="radio" name="investigation_category" value="theft_diversion">
+                <div class="category-info">
+                    <span class="category-name">⚠️ Theft / Diversion</span>
+                    <span class="category-desc">Requires DEA Form 106</span>
+                </div>
+            </label>
+            
+            <label class="category-option">
+                <input type="radio" name="investigation_category" value="other">
+                <div class="category-info">
+                    <span class="category-name">Other</span>
+                    <span class="category-desc">Requires explanation</span>
+                </div>
+            </label>
+        </div>
+    </div>
+    
+    <!-- Root Cause Analysis -->
+    <div class="form-section">
+        <h4>2. Root Cause Analysis <span class="text-danger">*</span></h4>
+        <textarea name="root_cause" class="form-control" rows="4" required
+                  placeholder="Provide detailed explanation of how the discrepancy occurred..."></textarea>
+    </div>
+    
+    <!-- Corrective Action -->
+    <div class="form-section">
+        <h4>3. Corrective Action</h4>
+        <textarea name="corrective_action" class="form-control" rows="3"
+                  placeholder="Document any corrective actions taken or planned..."></textarea>
+    </div>
+    
+    <!-- Resolution Notes -->
+    <div class="form-section">
+        <h4>4. Resolution Notes</h4>
+        <textarea name="resolution_notes" class="form-control" rows="2"
+                  placeholder="Additional notes..."></textarea>
+    </div>
+    
+    <!-- Inventory Adjustment -->
+    <div class="form-section">
+        <h4>5. Inventory Adjustment</h4>
+        
+        <div class="form-check mb-3">
+            <input type="checkbox" class="form-check-input" id="adjust_inventory" name="adjust_inventory" value="yes"
+                   onchange="document.getElementById('witness-section').style.display = this.checked ? 'block' : 'none'">
+            <label class="form-check-label" for="adjust_inventory">
+                <strong>Adjust inventory to match actual count</strong>
+                <br><small class="text-muted">Update balance from {{ count.expected_quantity }} to {{ count.actual_quantity }} {{ unit }}</small>
+            </label>
+        </div>
+        
+        <div id="witness-section" class="witness-section" style="display: none;">
+            <h5>Witness Verification Required</h5>
+            <div class="form-row">
+                <div class="form-group col-md-6">
+                    <label>Witness</label>
+                    <select name="witness_id" class="form-control">
+                        <option value="">-- Select --</option>
+                        {% for witness in witnesses %}
+                        <option value="{{ witness.id }}">{{ witness.full_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group col-md-6">
+                    <label>Witness Password</label>
+                    <input type="password" name="witness_password" class="form-control">
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Submit -->
+    <div class="form-section" style="text-align: center;">
+        <button type="submit" class="btn btn-resolve">✓ Submit Resolution</button>
+        {% if count.requires_supervisor_review %}
+        <p style="font-size: 0.85rem; color: #666; margin-top: 0.5rem;">
+            Requires supervisor approval.
+        </p>
+        {% endif %}
+    </div>
+</form>
+{% endif %}
+
+<!-- Already Resolved Display -->
+{% if count.discrepancy_resolved %}
+<div class="form-section">
+    <h4>✓ Resolution Details</h4>
+    
+    <div class="info-grid">
+        <div class="info-item">
+            <label>Category</label>
+            <span>{{ count.investigation_category|replace('_', ' ')|title if count.investigation_category else 'N/A' }}</span>
+        </div>
+        <div class="info-item">
+            <label>Resolved By</label>
+            <span>{{ count.resolver.full_name if count.resolver else 'Unknown' }}</span>
+        </div>
+        <div class="info-item">
+            <label>Resolved At</label>
+            <span>{{ count.resolved_at.strftime('%m/%d/%Y %I:%M %p') if count.resolved_at else 'N/A' }}</span>
+        </div>
+        <div class="info-item">
+            <label>Inventory Adjusted</label>
+            <span>{{ 'Yes' if count.inventory_adjusted else 'No' }}</span>
+        </div>
+    </div>
+    
+    {% if count.root_cause %}
+    <div style="margin-top: 1rem;">
+        <strong>Root Cause:</strong>
+        <p style="margin: 0.25rem 0; padding: 0.5rem; background: #f8f9fa; border-radius: 4px;">{{ count.root_cause }}</p>
+    </div>
+    {% endif %}
+    
+    {% if count.corrective_action %}
+    <div style="margin-top: 0.5rem;">
+        <strong>Corrective Action:</strong>
+        <p style="margin: 0.25rem 0; padding: 0.5rem; background: #f8f9fa; border-radius: 4px;">{{ count.corrective_action }}</p>
+    </div>
+    {% endif %}
+    
+    {% if count.supervisor_reviewed %}
+    <div style="margin-top: 1rem; padding: 0.75rem; background: #d4edda; border-radius: 4px;">
+        <strong>✓ Supervisor Approved</strong> by {{ count.supervisor_reviewer.full_name if count.supervisor_reviewer else 'Unknown' }}
+        on {{ count.supervisor_reviewed_at.strftime('%m/%d/%Y') if count.supervisor_reviewed_at else 'N/A' }}
+        {% if count.supervisor_notes %}<br><small>{{ count.supervisor_notes }}</small>{% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
+{% else %}
+<!-- Legacy Daily Count -->
+<div class="card">
+    <div class="card-body">
+        <form method="POST">
+            <input type="hidden" name="action" value="resolve">
+            <div class="form-group">
+                <label>Category</label>
+                <select name="investigation_category" class="form-control" required>
+                    <option value="documentation_error">Documentation Error</option>
+                    <option value="counting_error">Counting Error</option>
+                    <option value="other">Other</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Notes</label>
+                <textarea name="resolution_notes" class="form-control" rows="3" required></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Resolve</button>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}

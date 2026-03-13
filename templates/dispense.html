@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+
+{% block title %}Dispense Medication{% endblock %}
+{% block page_title %}Dispense Medication{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                </svg>
+                Dispense Controlled Substance
+            </h3>
+        </div>
+        <div class="card-body">
+            <form method="POST" class="needs-validation">
+                <!-- Medication Selection -->
+                <div class="form-section">
+                    <h4 class="form-section-title">Select Medication</h4>
+                    
+                    <div class="form-group">
+                        <label for="inventory_id" class="form-label required">Inventory Item</label>
+                        <select name="inventory_id" id="inventory_id" class="form-control" required>
+                            <option value="">Select medication to dispense...</option>
+                            {% for item in inventory_items %}
+                            <option value="{{ item.id }}" 
+                                    data-schedule="{{ item.medication.schedule }}"
+                                    data-available="{{ item.current_quantity }}"
+                                    data-unit="{{ item.unit_count or 'units' }}">
+                                [{{ item.medication.schedule }}] {{ item.medication.name }}
+                                {% if item.medication.strength %}({{ item.medication.strength }}){% endif %}
+                                - Lot: {{ item.lot_number or 'N/A' }}
+                                - Qty: {{ item.current_quantity }} {{ item.unit_count or 'units' }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div id="inventoryInfo" class="info-panel" style="display:none;">
+                        <div class="info-row">
+                            <span class="info-label">Available:</span>
+                            <span id="availableQty" class="font-mono font-bold"></span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Quantity -->
+                <div class="form-section">
+                    <h4 class="form-section-title">Dispense Amount</h4>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="quantity" class="form-label required">Quantity to Dispense</label>
+                            <input type="number" name="quantity" id="quantity" class="form-control" required
+                                   min="0.01" step="0.01" placeholder="Enter quantity">
+                            <small class="form-text" id="quantityHelp"></small>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Patient Information -->
+                <div class="form-section">
+                    <h4 class="form-section-title">Patient Information</h4>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Select from Patient Database</label>
+                        <select name="patient_id" id="patient_select" class="form-control">
+                            <option value="">-- Select Existing Patient or Enter New --</option>
+                            {% for patient in patients %}
+                            <option value="{{ patient.id }}" 
+                                    data-name="{{ patient.full_name }}"
+                                    data-dob="{{ patient.date_of_birth.strftime('%Y-%m-%d') }}"
+                                    data-mrn="{{ patient.mrn or '' }}">
+                                {{ patient.full_name }} - DOB: {{ patient.date_of_birth.strftime('%m/%d/%Y') }}{% if patient.mrn %} - MRN: {{ patient.mrn }}{% endif %}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <small class="form-text">Select an existing patient or manually enter new patient info below</small>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 2;">
+                            <label for="patient_name" class="form-label required">Patient Name</label>
+                            <input type="text" name="patient_name" id="patient_name" class="form-control" required
+                                   placeholder="Last, First">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="patient_dob" class="form-label required">Date of Birth</label>
+                            <input type="date" name="patient_dob" id="patient_dob" class="form-control" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="patient_mrn" class="form-label">Medical Record # (Optional)</label>
+                            <input type="text" name="patient_mrn" id="patient_mrn" class="form-control font-mono"
+                                   placeholder="MRN">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Prescriber Information -->
+                <div class="form-section">
+                    <h4 class="form-section-title">Prescriber Information</h4>
+                    
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 2;">
+                            <label for="prescriber_id" class="form-label required">Prescriber</label>
+                            <select name="prescriber_id" id="prescriber_id" class="form-control" required>
+                                <option value="">Select prescriber...</option>
+                                {% for provider in providers %}
+                                <option value="{{ provider.id }}">
+                                    {{ provider.full_name }}
+                                    {% if provider.dea_number %}(DEA: {{ provider.dea_number }}){% endif %}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="alert alert-info" style="margin-top: 1rem;">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/>
+                            <line x1="12" y1="8" x2="12.01" y2="8"/>
+                        </svg>
+                        <div>
+                            <strong>NC STOP Act Reminder:</strong> For Schedule II-III prescriptions, 
+                            verify prescriber has checked the NC Controlled Substances Reporting System (CSRS) 
+                            within the past 12 months for this patient.
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Notes -->
+                <div class="form-section">
+                    <div class="form-group">
+                        <label for="notes" class="form-label">Dispensing Notes</label>
+                        <textarea name="notes" id="notes" class="form-control" rows="2"
+                                  placeholder="Any relevant notes (indication, special instructions, etc.)"></textarea>
+                    </div>
+                </div>
+                
+                <!-- Submit -->
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-success btn-lg">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                            <polyline points="22 4 12 14.01 9 11.01"/>
+                        </svg>
+                        Dispense Medication
+                    </button>
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+const inventorySelect = document.getElementById('inventory_id');
+const quantityInput = document.getElementById('quantity');
+const inventoryInfo = document.getElementById('inventoryInfo');
+const availableQty = document.getElementById('availableQty');
+const quantityHelp = document.getElementById('quantityHelp');
+
+inventorySelect.addEventListener('change', function() {
+    const selected = this.options[this.selectedIndex];
+    if (this.value) {
+        const available = selected.dataset.available;
+        const unit = selected.dataset.unit;
+        availableQty.textContent = available + ' ' + unit;
+        quantityHelp.textContent = 'Maximum: ' + available + ' ' + unit;
+        quantityInput.max = available;
+        inventoryInfo.style.display = 'block';
+    } else {
+        inventoryInfo.style.display = 'none';
+        quantityHelp.textContent = '';
+        quantityInput.max = '';
+    }
+});
+
+// Patient selection auto-fill
+const patientSelect = document.getElementById('patient_select');
+const patientName = document.getElementById('patient_name');
+const patientDob = document.getElementById('patient_dob');
+const patientMrn = document.getElementById('patient_mrn');
+
+patientSelect.addEventListener('change', function() {
+    const selected = this.options[this.selectedIndex];
+    if (this.value) {
+        patientName.value = selected.dataset.name;
+        patientDob.value = selected.dataset.dob;
+        patientMrn.value = selected.dataset.mrn;
+    }
+});
+</script>
+{% endblock %}

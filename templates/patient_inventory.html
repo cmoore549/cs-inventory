@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+
+{% block title %}Patient-Specific Inventory{% endblock %}
+{% block page_title %}Patient-Specific Inventory{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('add_patient_medication') }}" class="btn btn-primary btn-sm">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+    </svg>
+    Add Patient Medication
+</a>
+{% endblock %}
+
+{% block content %}
+<!-- Status Filter Tabs -->
+<div class="card mb-3">
+    <div class="card-body">
+        <div class="filter-tabs">
+            <a href="{{ url_for('patient_inventory', status='active') }}" class="filter-tab {% if status_filter == 'active' %}active{% endif %}">
+                Active <span class="badge">{{ status_counts.active }}</span>
+            </a>
+            <a href="{{ url_for('patient_inventory', status='completed') }}" class="filter-tab {% if status_filter == 'completed' %}active{% endif %}">
+                Completed <span class="badge">{{ status_counts.completed }}</span>
+            </a>
+            <a href="{{ url_for('patient_inventory', status='expired') }}" class="filter-tab {% if status_filter == 'expired' %}active{% endif %}">
+                Expired <span class="badge">{{ status_counts.expired }}</span>
+            </a>
+            <a href="{{ url_for('patient_inventory', status='destroyed') }}" class="filter-tab {% if status_filter == 'destroyed' %}active{% endif %}">
+                Destroyed <span class="badge">{{ status_counts.destroyed }}</span>
+            </a>
+            <a href="{{ url_for('patient_inventory', status='all') }}" class="filter-tab {% if status_filter == 'all' %}active{% endif %}">
+                All
+            </a>
+        </div>
+        
+        <form method="GET" class="search-bar mt-3">
+            <input type="hidden" name="status" value="{{ status_filter }}">
+            <div class="search-input-wrapper">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" name="search" class="form-control" placeholder="Search by patient name or MRN..." value="{{ search }}">
+            </div>
+            <button type="submit" class="btn btn-secondary">Search</button>
+            {% if search %}
+            <a href="{{ url_for('patient_inventory', status=status_filter) }}" class="btn btn-outline">Clear</a>
+            {% endif %}
+        </form>
+    </div>
+</div>
+
+<!-- Patient Medications List -->
+<div class="card">
+    <div class="card-body">
+        {% if items %}
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Patient</th>
+                        <th>Medication</th>
+                        <th>Received</th>
+                        <th>Expires</th>
+                        <th>Remaining</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr>
+                        <td>
+                            <strong>{{ item.patient_name }}</strong>
+                            <br><small class="text-muted">DOB: {{ item.patient_dob.strftime('%m/%d/%Y') }}</small>
+                            {% if item.patient_mrn %}<br><small class="text-muted">MRN: {{ item.patient_mrn }}</small>{% endif %}
+                        </td>
+                        <td>
+                            <span class="schedule-badge schedule-{{ item.medication.schedule|lower }}">{{ item.medication.schedule }}</span>
+                            {{ item.medication.name }}
+                            {% if item.medication.strength %}<br><small>{{ item.medication.strength }}</small>{% endif %}
+                        </td>
+                        <td>{{ item.preparation_date.strftime('%m/%d/%Y') }}</td>
+                        <td>
+                            {% if item.expiration_date %}
+                                <span class="{% if item.is_expired %}text-danger{% elif item.days_until_expiration <= 30 %}text-warning{% endif %}">
+                                    {{ item.expiration_date.strftime('%m/%d/%Y') }}
+                                    {% if item.is_expired %}(EXPIRED){% elif item.days_until_expiration <= 30 %}({{ item.days_until_expiration }}d){% endif %}
+                                </span>
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="quantity-display {% if item.quantity_remaining <= 0 %}quantity-low{% endif %}">
+                                {{ item.quantity_remaining }} / {{ item.quantity_prepared }} {{ item.unit }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if item.status == 'active' %}
+                            <span class="status-badge status-success">Active</span>
+                            {% elif item.status == 'completed' %}
+                            <span class="status-badge status-info">Completed</span>
+                            {% elif item.status == 'expired' %}
+                            <span class="status-badge status-warning">Expired</span>
+                            {% elif item.status == 'destroyed' %}
+                            <span class="status-badge status-danger">Destroyed</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group">
+                                <a href="{{ url_for('patient_medication_detail', id=item.id) }}" class="btn btn-outline btn-sm">View</a>
+                                {% if item.status == 'active' %}
+                                <a href="{{ url_for('administer_patient_medication', id=item.id) }}" class="btn btn-primary btn-sm">Administer</a>
+                                {% endif %}
+                                {% if current_user.role == 'admin' %}
+                                <a href="{{ url_for('delete_patient_medication', id=item.id) }}" class="btn btn-outline btn-sm btn-danger-outline">Delete</a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+            </svg>
+            <h3>No Patient-Specific Medications</h3>
+            <p>{% if search %}No results found. Try a different search.{% else %}Create patient-specific controlled substance inventory for compounded or designated medications.{% endif %}</p>
+            <a href="{{ url_for('add_patient_medication') }}" class="btn btn-primary">Add Patient Medication</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.filter-tabs {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+.filter-tab {
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius);
+    text-decoration: none;
+    color: var(--text);
+    background: var(--bg-dark);
+    transition: all 0.15s ease;
+}
+.filter-tab:hover {
+    background: var(--gray-200);
+}
+.filter-tab.active {
+    background: var(--primary);
+    color: white;
+}
+.filter-tab .badge {
+    margin-left: 0.5rem;
+    background: rgba(255,255,255,0.2);
+}
+.filter-tab.active .badge {
+    background: rgba(255,255,255,0.3);
+}
+.status-info {
+    background: rgba(45, 106, 159, 0.1);
+    color: var(--info);
+}
+</style>
+{% endblock %}
