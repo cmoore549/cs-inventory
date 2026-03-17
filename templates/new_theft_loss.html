@@ -1,0 +1,316 @@
+{% extends "base.html" %}
+
+{% block title %}New Theft/Loss Report{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div class="header-content">
+        <h1>New Theft/Loss Report</h1>
+        <p class="subtitle">DEA Form 106 - Report of Theft or Loss</p>
+    </div>
+    <div class="header-actions">
+        <a href="{{ url_for('theft_loss') }}" class="btn btn-secondary">
+            <i class="icon">←</i> Back to Reports
+        </a>
+    </div>
+</div>
+
+<div class="theft-loss-container">
+    <div class="alert alert-danger">
+        <h4>⚠️ Important: DEA Reporting Requirement</h4>
+        <p>Theft or significant loss of controlled substances must be reported to DEA within <strong>1 business day</strong> 
+        of discovery. This form helps you document the incident and track reporting status.</p>
+        <p>DEA Form 106 can be filed online at: 
+            <a href="https://www.deadiversion.usdoj.gov/21cfr_reports/theft/theft-loss.html" target="_blank">
+                https://www.deadiversion.usdoj.gov/21cfr_reports/theft/theft-loss.html
+            </a>
+        </p>
+    </div>
+
+    <form method="POST" action="{{ url_for('new_theft_loss') }}">
+        <div class="form-card">
+            <h3>Incident Information</h3>
+            
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="incident_date">Date of Discovery *</label>
+                    <input type="date" name="incident_date" id="incident_date" 
+                           value="{{ now.strftime('%Y-%m-%d') }}" required>
+                </div>
+                <div class="form-group">
+                    <label for="incident_type">Type of Loss *</label>
+                    <select name="incident_type" id="incident_type" required>
+                        <option value="">-- Select Type --</option>
+                        <option value="theft">Theft (Known or Suspected)</option>
+                        <option value="robbery">Armed Robbery</option>
+                        <option value="burglary">Burglary/Break-in</option>
+                        <option value="employee_theft">Employee Pilferage</option>
+                        <option value="loss_in_transit">Loss in Transit</option>
+                        <option value="disaster">Natural Disaster</option>
+                        <option value="spillage">Spillage/Breakage</option>
+                        <option value="other">Other Significant Loss</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="discovered_by">Discovered By *</label>
+                <select name="discovered_by" id="discovered_by" required>
+                    <option value="">-- Select Person --</option>
+                    {% for user in users %}
+                    <option value="{{ user.id }}">{{ user.full_name }} ({{ user.role|title }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="description">Description of Incident *</label>
+                <textarea name="description" id="description" rows="4" required
+                    placeholder="Provide a detailed description of the incident, including how it was discovered, circumstances, and any relevant details..."></textarea>
+            </div>
+        </div>
+
+        <div class="form-card">
+            <h3>Substances Involved</h3>
+            <p class="form-description">Select the controlled substances involved in this incident.</p>
+
+            <div id="substances-container">
+                <div class="substance-entry">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Inventory Item *</label>
+                            <select name="inventory_items[]" required>
+                                <option value="">-- Select Item --</option>
+                                {% for item in inventory_items %}
+                                <option value="{{ item.id }}">
+                                    {{ item.medication.name }} {{ item.medication.strength }} 
+                                    (Lot: {{ item.lot_number }}, Qty: {{ item.quantity }} {{ item.unit_count or item.medication.unit or 'units' }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Quantity Lost/Stolen *</label>
+                            <input type="number" name="quantities[]" min="1" required 
+                                   placeholder="Enter quantity">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <button type="button" class="btn btn-secondary btn-sm" onclick="addSubstance()">
+                + Add Another Substance
+            </button>
+        </div>
+
+        <div class="form-card">
+            <h3>Law Enforcement</h3>
+            
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" name="law_enforcement_notified" id="law_enforcement_notified">
+                    Law enforcement has been notified
+                </label>
+            </div>
+
+            <div id="law-enforcement-details" style="display: none;">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="police_report_number">Police Report Number</label>
+                        <input type="text" name="police_report_number" id="police_report_number" 
+                               placeholder="Report #">
+                    </div>
+                    <div class="form-group">
+                        <label for="law_enforcement_agency">Agency Name</label>
+                        <input type="text" name="law_enforcement_agency" id="law_enforcement_agency" 
+                               placeholder="Agency name">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-card">
+            <h3>DEA Notification Status</h3>
+            
+            <div class="form-group">
+                <label for="dea_notified">DEA Form 106 Status *</label>
+                <select name="dea_notified" id="dea_notified" required>
+                    <option value="pending">Pending - Not Yet Submitted</option>
+                    <option value="submitted">Submitted to DEA</option>
+                    <option value="acknowledged">Acknowledged by DEA</option>
+                </select>
+            </div>
+
+            <div class="form-group" id="dea-report-fields" style="display: none;">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="dea_report_date">Date Submitted to DEA</label>
+                        <input type="date" name="dea_report_date" id="dea_report_date">
+                    </div>
+                    <div class="form-group">
+                        <label for="dea_case_number">DEA Case Number</label>
+                        <input type="text" name="dea_case_number" id="dea_case_number" 
+                               placeholder="Case #">
+                    </div>
+                </div>
+            </div>
+
+            <div class="alert alert-info">
+                <strong>Reminder:</strong> DEA must be notified within 1 business day of discovery. 
+                File Form 106 online or by calling DEA Diversion Control Division.
+            </div>
+        </div>
+
+        <div class="form-card">
+            <h3>Additional Notes</h3>
+            
+            <div class="form-group">
+                <label for="notes">Internal Notes</label>
+                <textarea name="notes" id="notes" rows="3" 
+                    placeholder="Any additional notes or follow-up actions..."></textarea>
+            </div>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">
+                <i class="icon">📝</i> Create Report
+            </button>
+            <a href="{{ url_for('theft_loss') }}" class="btn btn-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+
+<script>
+// Toggle law enforcement details
+document.getElementById('law_enforcement_notified').addEventListener('change', function() {
+    document.getElementById('law-enforcement-details').style.display = this.checked ? 'block' : 'none';
+});
+
+// Toggle DEA report fields
+document.getElementById('dea_notified').addEventListener('change', function() {
+    var deaFields = document.getElementById('dea-report-fields');
+    deaFields.style.display = (this.value === 'submitted' || this.value === 'acknowledged') ? 'block' : 'none';
+});
+
+// Add substance entry
+function addSubstance() {
+    var container = document.getElementById('substances-container');
+    var entry = document.createElement('div');
+    entry.className = 'substance-entry';
+    entry.innerHTML = `
+        <div class="form-row">
+            <div class="form-group">
+                <label>Inventory Item *</label>
+                <select name="inventory_items[]" required>
+                    <option value="">-- Select Item --</option>
+                    {% for item in inventory_items %}
+                    <option value="{{ item.id }}">
+                        {{ item.medication.name }} {{ item.medication.strength }} 
+                        (Lot: {{ item.lot_number }}, Qty: {{ item.quantity }} {{ item.unit_count or item.medication.unit or 'units' }})
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Quantity Lost/Stolen *</label>
+                <input type="number" name="quantities[]" min="1" required placeholder="Enter quantity">
+            </div>
+            <button type="button" class="btn btn-danger btn-sm btn-remove" onclick="this.parentElement.parentElement.remove()">✕</button>
+        </div>
+    `;
+    container.appendChild(entry);
+}
+</script>
+
+<style>
+.theft-loss-container {
+    max-width: 900px;
+}
+
+.form-card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.form-card h3 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1.1rem;
+    color: #1e4d6b;
+    border-bottom: 1px solid #e9ecef;
+    padding-bottom: 0.5rem;
+}
+
+.form-description {
+    color: #6c757d;
+    margin-bottom: 1rem;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    align-items: end;
+}
+
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    font-size: 1rem;
+}
+
+.form-group textarea {
+    resize: vertical;
+    min-height: 80px;
+}
+
+.substance-entry {
+    background: #f8f9fa;
+    border-radius: 4px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    position: relative;
+}
+
+.substance-entry .form-row {
+    grid-template-columns: 2fr 1fr auto;
+}
+
+.btn-remove {
+    align-self: end;
+    margin-bottom: 1rem;
+}
+
+.btn-sm {
+    padding: 0.5rem 1rem;
+    font-size: 0.9rem;
+}
+
+.form-actions {
+    display: flex;
+    gap: 1rem;
+    padding: 1rem 0;
+}
+
+.alert a {
+    color: inherit;
+    text-decoration: underline;
+}
+</style>
+{% endblock %}

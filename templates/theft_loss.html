@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+
+{% block title %}Theft/Loss Reports{% endblock %}
+{% block page_title %}Theft &amp; Loss Reports{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('new_theft_loss') }}" class="btn btn-danger btn-sm">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+    </svg>
+    Report Theft/Loss
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="alert alert-info mb-3">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/>
+        <line x1="12" y1="8" x2="12.01" y2="8"/>
+    </svg>
+    <div>
+        <strong>DEA Requirement:</strong> 
+        Any theft or significant loss of controlled substances must be reported to DEA using 
+        <strong>DEA Form 106</strong> within <strong>one business day</strong> of discovery. 
+        Local law enforcement should also be notified. 
+        <a href="https://www.deadiversion.usdoj.gov/21cfr_reports/theft/" target="_blank" rel="noopener">
+            Submit Form 106 Online →
+        </a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Theft/Loss Reports</h3>
+    </div>
+    <div class="card-body">
+        {% if reports %}
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date Discovered</th>
+                        <th>Type</th>
+                        <th>Medication</th>
+                        <th>Quantity</th>
+                        <th>DEA Form 106</th>
+                        <th>Police Report</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for report in reports %}
+                    <tr>
+                        <td>{{ report.discovery_date.strftime('%m/%d/%Y') }}</td>
+                        <td>
+                            <span class="loss-type-badge loss-type-{{ report.report_type }}">
+                                {{ report.report_type|title }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="schedule-badge schedule-{{ report.medication.schedule|lower }}">
+                                {{ report.medication.schedule }}
+                            </span>
+                            {{ report.medication.name }}
+                        </td>
+                        <td class="font-mono text-danger font-bold">{{ report.quantity_lost }} {{ report.medication.unit or 'units' }}</td>
+                        <td>
+                            {% if report.dea_form_106_submitted %}
+                            <span class="status-badge status-success">Submitted {{ report.dea_notification_date.strftime('%m/%d') if report.dea_notification_date else '' }}</span>
+                            {% else %}
+                            <span class="status-badge status-danger">PENDING</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if report.police_report_number %}
+                            <span class="font-mono">{{ report.police_report_number }}</span>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if report.dea_form_106_submitted and report.nc_dcu_notified %}
+                            <span class="status-badge status-success">Complete</span>
+                            {% else %}
+                            <span class="status-badge status-warning">In Progress</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group">
+                                <a href="{{ url_for('update_theft_loss', id=report.id) }}" class="btn btn-outline btn-sm">View/Update</a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="48" height="48">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                <polyline points="22 4 12 14.01 9 11.01"/>
+            </svg>
+            <h3>No Theft/Loss Reports</h3>
+            <p>No incidents have been reported. Report any theft or loss immediately.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Reporting Guidelines -->
+<div class="card mt-3">
+    <div class="card-header">
+        <h3 class="card-title">Reporting Guidelines</h3>
+    </div>
+    <div class="card-body">
+        <div class="guidelines-grid">
+            <div class="guideline-item">
+                <h4>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                        <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                    </svg>
+                    Timeline
+                </h4>
+                <p>Report to DEA within <strong>1 business day</strong> of discovery of theft or significant loss.</p>
+            </div>
+            <div class="guideline-item">
+                <h4>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                    </svg>
+                    DEA Form 106
+                </h4>
+                <p>Submit online at <a href="https://www.deadiversion.usdoj.gov/21cfr_reports/theft/" target="_blank">DEA Diversion Control</a> or call 1-877-792-2873.</p>
+            </div>
+            <div class="guideline-item">
+                <h4>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                        <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+                    </svg>
+                    Law Enforcement
+                </h4>
+                <p>Contact local police and file a report. Retain the police report number for DEA records.</p>
+            </div>
+            <div class="guideline-item">
+                <h4>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                    Documentation
+                </h4>
+                <p>Maintain detailed records of the incident, investigation, and all reports filed for at least 2 years.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

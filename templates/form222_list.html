@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}Form 222 Tracking{% endblock %}
+{% block page_title %}DEA Form 222 Tracking{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('add_form222') }}" class="btn btn-primary btn-sm">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+    </svg>
+    New Form 222
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="GET" class="search-bar">
+            <div class="filter-group">
+                <select name="status" class="form-control" style="width: auto;">
+                    <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All Status</option>
+                    <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending</option>
+                    <option value="partial" {% if status_filter == 'partial' %}selected{% endif %}>Partial</option>
+                    <option value="complete" {% if status_filter == 'complete' %}selected{% endif %}>Complete</option>
+                    <option value="void" {% if status_filter == 'void' %}selected{% endif %}>Void</option>
+                </select>
+                <button type="submit" class="btn btn-secondary">Filter</button>
+                {% if status_filter != 'all' %}
+                <a href="{{ url_for('form222_list') }}" class="btn btn-outline">Clear</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Form 222 Records ({{ forms|length }})</h3>
+    </div>
+    <div class="card-body">
+        {% if forms %}
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Form Number</th>
+                        <th>Supplier</th>
+                        <th>Order Date</th>
+                        <th>Received Date</th>
+                        <th>Items</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for form in forms %}
+                    <tr>
+                        <td class="font-mono font-bold">{{ form.form_number }}</td>
+                        <td>{{ form.supplier.name if form.supplier else '-' }}</td>
+                        <td>{{ form.order_date.strftime('%m/%d/%Y') }}</td>
+                        <td>{{ form.received_date.strftime('%m/%d/%Y') if form.received_date else '-' }}</td>
+                        <td>{{ form.line_items|length }}</td>
+                        <td>
+                            {% if form.status == 'pending' %}
+                            <span class="status-badge status-warning">Pending</span>
+                            {% elif form.status == 'partial' %}
+                            <span class="status-badge status-info">Partial</span>
+                            {% elif form.status == 'complete' %}
+                            <span class="status-badge status-success">Complete</span>
+                            {% elif form.status == 'void' %}
+                            <span class="status-badge status-danger">Void</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <div class="btn-group">
+                                <a href="{{ url_for('form222_detail', id=form.id) }}" class="btn btn-outline btn-sm">View</a>
+                                {% if form.status in ['pending', 'partial'] %}
+                                <a href="{{ url_for('receive_form222', id=form.id) }}" class="btn btn-primary btn-sm">Receive</a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
+            </svg>
+            <h3>No Form 222 Records</h3>
+            <p>{% if status_filter != 'all' %}No forms with this status.{% else %}Create a Form 222 record when ordering Schedule II substances.{% endif %}</p>
+            <a href="{{ url_for('add_form222') }}" class="btn btn-primary">New Form 222</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="alert alert-info mt-3">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+        <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/>
+        <line x1="12" y1="8" x2="12.01" y2="8"/>
+    </svg>
+    <div>
+        <strong>DEA Form 222 Requirement:</strong> Schedule II controlled substances must be ordered using DEA Form 222 
+        or the electronic equivalent (CSOS). Keep all Form 222s on file for at least 2 years.
+    </div>
+</div>
+{% endblock %}

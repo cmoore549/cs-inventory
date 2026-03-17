@@ -1,0 +1,700 @@
+{% extends "base.html" %}
+
+{% block title %}Daily Count{% endblock %}
+{% block page_title %}Daily Inventory Count{% endblock %}
+
+{% block header_actions %}
+{% if todays_completed_inventories %}
+<a href="{{ url_for('physical_inventory_pdf', id=todays_completed_inventories[0].id) }}" class="btn btn-primary btn-sm">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+    </svg>
+    Export PDF
+</a>
+<a href="{{ url_for('physical_inventory_report', id=todays_completed_inventories[0].id) }}" class="btn btn-success btn-sm">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+    </svg>
+    View Report
+</a>
+{% endif %}
+<a href="{{ url_for('physical_inventory_list') }}" class="btn btn-secondary btn-sm">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
+        <line x1="6" y1="20" x2="6" y2="14"/>
+    </svg>
+    Count History
+</a>
+{% endblock %}
+
+{% block content %}
+<!-- Counts Awaiting Verification -->
+{% if pending_verification %}
+<div class="card mb-3">
+    <div class="card-header" style="background: #fff3cd;">
+        <h3 class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            </svg>
+            Counts Awaiting Verification ({{ pending_verification|length }})
+        </h3>
+        <button type="button" class="btn btn-success btn-sm" onclick="showVerifyAllModal()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            Verify All
+        </button>
+    </div>
+    <div class="card-body">
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Medication</th>
+                        <th>Expected</th>
+                        <th>Counted</th>
+                        <th>Discrepancy</th>
+                        <th>Counted By</th>
+                        <th>Time</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for count in pending_verification %}
+                    <tr class="{% if count.discrepancy != 0 %}table-row-warning{% endif %}">
+                        <td>
+                            <span class="schedule-badge schedule-{{ count.inventory_item.medication.schedule|lower }}">
+                                {{ count.inventory_item.medication.schedule }}
+                            </span>
+                            {{ count.inventory_item.medication.name }}
+                            {% if count.inventory_item.medication.strength %}
+                            <small class="text-muted">({{ count.inventory_item.medication.strength }})</small>
+                            {% endif %}
+                            <br><small class="text-muted">Lot: {{ count.inventory_item.lot_number or 'N/A' }}</small>
+                        </td>
+                        <td class="font-mono">{{ count.expected_quantity }} <span class="unit-type">{{ count.inventory_item.unit_count or count.inventory_item.medication.form or 'units' }}</span></td>
+                        <td class="font-mono">{{ count.actual_quantity }} <span class="unit-type">{{ count.inventory_item.unit_count or count.inventory_item.medication.form or 'units' }}</span></td>
+                        <td class="font-mono {% if count.discrepancy != 0 %}text-danger font-bold{% else %}text-success{% endif %}">
+                            {% if count.discrepancy > 0 %}+{% endif %}{{ count.discrepancy }}
+                        </td>
+                        <td>{{ count.counter.full_name }}</td>
+                        <td>{{ count.counted_at.strftime('%H:%M') if count.counted_at else '-' }}</td>
+                        <td>
+                            {% if count.counted_by != current_user.id %}
+                            <button type="button" class="btn btn-success btn-sm" onclick="showVerifyModal({{ count.id }}, '{{ count.inventory_item.medication.name }}')">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                                    <polyline points="20 6 9 17 4 12"/>
+                                </svg>
+                                Verify
+                            </button>
+                            {% else %}
+                            <span class="text-muted" style="font-size:0.85rem;">Needs different verifier</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Daily Count Form - All Items -->
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+            </svg>
+            Perform Daily Count - {{ today.strftime('%B %d, %Y') }}
+        </h3>
+        <div class="card-actions">
+            <span class="text-muted" style="font-size: 0.85rem;">
+                {% if already_counted_ids %}
+                    {{ already_counted_ids|length }} of {{ inventory_items|length }} items counted today
+                {% else %}
+                    {{ inventory_items|length }} items to count
+                {% endif %}
+            </span>
+        </div>
+    </div>
+    <div class="card-body">
+        {% if inventory_items %}
+        <form method="POST" id="dailyCountForm">
+            <div class="alert alert-info mb-3">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/>
+                    <line x1="12" y1="8" x2="12.01" y2="8"/>
+                </svg>
+                <div>
+                    <strong>Instructions:</strong> Enter the physical count for each item. 
+                    Items already counted today are shown in green. Leave fields blank to skip items.
+                    Discrepancies will be highlighted in red.
+                </div>
+            </div>
+            
+            <!-- Schedule II Items (if any) -->
+            {% set schedule_ii_items = inventory_items|selectattr('medication.schedule', 'equalto', 'II')|list %}
+            {% if schedule_ii_items %}
+            <div class="inventory-section">
+                <div class="section-title">
+                    <h2>Schedule II Substances</h2>
+                    <span class="schedule-indicator schedule-ii">Exact Count Required</span>
+                </div>
+                <div class="table-container">
+                    <table class="count-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 35%;">Medication</th>
+                                <th style="width: 15%;">Lot #</th>
+                                <th style="width: 15%;">Expected</th>
+                                <th style="width: 15%;">Actual Count</th>
+                                <th style="width: 10%;">Discrepancy</th>
+                                <th style="width: 10%;">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in schedule_ii_items %}
+                            <tr class="{% if item.id in already_counted_ids %}already-counted{% endif %}" data-item-id="{{ item.id }}">
+                                <td>
+                                    <strong>{{ item.medication.name }}</strong>
+                                    {% if item.medication.strength %}
+                                    <span class="text-muted">({{ item.medication.strength }})</span>
+                                    {% endif %}
+                                </td>
+                                <td class="font-mono">{{ item.lot_number or 'N/A' }}</td>
+                                <td class="font-mono expected-qty">{{ item.current_quantity }} <span class="unit-type">{{ item.unit_count or item.medication.form or 'units' }}</span></td>
+                                <td>
+                                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                        <input type="number" 
+                                               name="count_{{ item.id }}" 
+                                               class="form-control count-input" 
+                                               data-expected="{{ item.current_quantity }}"
+                                               data-item-id="{{ item.id }}"
+                                               min="0" 
+                                               step="1"
+                                               placeholder="--"
+                                               {% if item.id in already_counted_ids %}value="{{ already_counted_values.get(item.id, '') }}"{% endif %}>
+                                        <span class="unit-type">{{ item.unit_count or item.medication.form or 'units' }}</span>
+                                    </div>
+                                    <input type="hidden" name="expected_{{ item.id }}" value="{{ item.current_quantity }}">
+                                </td>
+                                <td class="font-mono discrepancy-cell" data-item-id="{{ item.id }}">--</td>
+                                <td class="status-cell" data-item-id="{{ item.id }}">
+                                    {% if item.id in already_counted_ids %}
+                                    <span class="status-badge status-success">Done</span>
+                                    {% else %}
+                                    <span class="status-badge status-pending">Pending</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Schedule III-V Items -->
+            {% set other_items = inventory_items|rejectattr('medication.schedule', 'equalto', 'II')|list %}
+            {% if other_items %}
+            <div class="inventory-section mt-3">
+                <div class="section-title">
+                    <h2>Schedule III-V Substances</h2>
+                </div>
+                <div class="table-container">
+                    <table class="count-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 10%;">Schedule</th>
+                                <th style="width: 30%;">Medication</th>
+                                <th style="width: 12%;">Lot #</th>
+                                <th style="width: 13%;">Expected</th>
+                                <th style="width: 15%;">Actual Count</th>
+                                <th style="width: 10%;">Discrepancy</th>
+                                <th style="width: 10%;">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in other_items %}
+                            <tr class="{% if item.id in already_counted_ids %}already-counted{% endif %}" data-item-id="{{ item.id }}">
+                                <td>
+                                    <span class="schedule-badge schedule-{{ item.medication.schedule|lower }}">
+                                        {{ item.medication.schedule }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <strong>{{ item.medication.name }}</strong>
+                                    {% if item.medication.strength %}
+                                    <span class="text-muted">({{ item.medication.strength }})</span>
+                                    {% endif %}
+                                </td>
+                                <td class="font-mono">{{ item.lot_number or 'N/A' }}</td>
+                                <td class="font-mono expected-qty">{{ item.current_quantity }} <span class="unit-type">{{ item.unit_count or item.medication.form or 'units' }}</span></td>
+                                <td>
+                                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                        <input type="number" 
+                                               name="count_{{ item.id }}" 
+                                               class="form-control count-input" 
+                                               data-expected="{{ item.current_quantity }}"
+                                               data-item-id="{{ item.id }}"
+                                               min="0" 
+                                               step="1"
+                                               placeholder="--"
+                                               {% if item.id in already_counted_ids %}value="{{ already_counted_values.get(item.id, '') }}"{% endif %}>
+                                        <span class="unit-type">{{ item.unit_count or item.medication.form or 'units' }}</span>
+                                    </div>
+                                    <input type="hidden" name="expected_{{ item.id }}" value="{{ item.current_quantity }}">
+                                </td>
+                                <td class="font-mono discrepancy-cell" data-item-id="{{ item.id }}">--</td>
+                                <td class="status-cell" data-item-id="{{ item.id }}">
+                                    {% if item.id in already_counted_ids %}
+                                    <span class="status-badge status-success">Done</span>
+                                    {% else %}
+                                    <span class="status-badge status-pending">Pending</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Notes Section -->
+            <div class="form-section mt-3">
+                <div class="form-group">
+                    <label for="notes" class="form-label">Count Notes (required if any discrepancies)</label>
+                    <textarea name="notes" id="notes" class="form-control" rows="2"
+                              placeholder="Enter any notes about discrepancies or issues found during the count"></textarea>
+                </div>
+            </div>
+            
+            <!-- Witness Verification Section -->
+            <div class="witness-section mt-3">
+                <div class="witness-card">
+                    <h4>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                            <circle cx="9" cy="7" r="4"/>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                        </svg>
+                        Witness Verification Required
+                    </h4>
+                    <p class="text-muted">A witness must verify this count. The witness confirms they observed the counting process.</p>
+                    <div class="witness-fields">
+                        <div class="form-group">
+                            <label for="witness_id" class="form-label required">Witness</label>
+                            <select name="witness_id" id="witness_id" class="form-control" required>
+                                <option value="">-- Select Witness --</option>
+                                {% for user in witnesses %}
+                                <option value="{{ user.id }}">{{ user.full_name }}{% if user.credentials %} ({{ user.credentials }}){% endif %}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="witness_password" class="form-label required">Witness Password</label>
+                            <input type="password" name="witness_password" id="witness_password" class="form-control" required autocomplete="off">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Summary & Submit -->
+            <div class="count-summary mt-3">
+                <div class="summary-stats">
+                    <div class="summary-stat">
+                        <span class="stat-number" id="itemsCounted">0</span>
+                        <span class="stat-label">Items Counted</span>
+                    </div>
+                    <div class="summary-stat">
+                        <span class="stat-number text-success" id="itemsMatched">0</span>
+                        <span class="stat-label">Matched</span>
+                    </div>
+                    <div class="summary-stat">
+                        <span class="stat-number text-danger" id="itemsDiscrepancy">0</span>
+                        <span class="stat-label">Discrepancies</span>
+                    </div>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" class="btn btn-secondary" onclick="clearAllCounts()">
+                        Clear All
+                    </button>
+                    <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                            <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                        </svg>
+                        Submit Verified Counts
+                    </button>
+                </div>
+            </div>
+        </form>
+        {% else %}
+        <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48">
+                <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+            </svg>
+            <h3>No Inventory Items</h3>
+            <p>There are no controlled substances in stock to count. <a href="{{ url_for('receive_inventory') }}">Receive inventory</a> first.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.unit-type {
+    color: var(--gray-600);
+    font-size: 0.85rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.count-table input.count-input {
+    width: 100%;
+    max-width: 100px;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 1rem;
+}
+
+.count-table tr.already-counted {
+    background-color: rgba(45, 122, 79, 0.05);
+}
+
+.count-table tr.has-discrepancy {
+    background-color: rgba(181, 61, 61, 0.08);
+}
+
+.discrepancy-cell.discrepancy-ok {
+    color: var(--success);
+}
+
+.discrepancy-cell.discrepancy-error {
+    color: var(--danger);
+    font-weight: 600;
+}
+
+.count-summary {
+    background: var(--gray-50);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-lg);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--spacing-lg);
+}
+
+.summary-stats {
+    display: flex;
+    gap: var(--spacing-xl);
+}
+
+.summary-stat {
+    text-align: center;
+}
+
+.summary-stat .stat-number {
+    display: block;
+    font-size: 1.75rem;
+    font-weight: 700;
+    font-family: var(--font-mono);
+}
+
+.summary-stat .stat-label {
+    font-size: 0.8rem;
+    color: var(--gray-600);
+}
+
+.table-row-warning {
+    background-color: rgba(196, 132, 29, 0.1);
+}
+
+/* Witness Section */
+.witness-section {
+    margin-top: 1.5rem;
+}
+.witness-card {
+    background: rgba(30, 77, 107, 0.03);
+    border: 2px solid var(--primary);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+}
+.witness-card h4 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.witness-card p {
+    margin: 0 0 1rem 0;
+    font-size: 0.875rem;
+}
+.witness-fields {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+@media (max-width: 600px) {
+    .witness-fields {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+
+<script>
+// Track counts and discrepancies
+function updateCounts() {
+    const inputs = document.querySelectorAll('.count-input');
+    let counted = 0;
+    let matched = 0;
+    let discrepancies = 0;
+    
+    inputs.forEach(input => {
+        const itemId = input.dataset.itemId;
+        const expected = parseFloat(input.dataset.expected);
+        const actual = input.value !== '' ? parseFloat(input.value) : null;
+        const discrepancyCell = document.querySelector(`.discrepancy-cell[data-item-id="${itemId}"]`);
+        const statusCell = document.querySelector(`.status-cell[data-item-id="${itemId}"]`);
+        const row = input.closest('tr');
+        
+        if (actual !== null) {
+            counted++;
+            const diff = actual - expected;
+            
+            if (diff === 0) {
+                matched++;
+                discrepancyCell.textContent = '0';
+                discrepancyCell.className = 'font-mono discrepancy-cell discrepancy-ok';
+                row.classList.remove('has-discrepancy');
+            } else {
+                discrepancies++;
+                discrepancyCell.textContent = (diff > 0 ? '+' : '') + diff;
+                discrepancyCell.className = 'font-mono discrepancy-cell discrepancy-error';
+                row.classList.add('has-discrepancy');
+            }
+            statusCell.innerHTML = '<span class="status-badge status-success">Counted</span>';
+        } else {
+            discrepancyCell.textContent = '--';
+            discrepancyCell.className = 'font-mono discrepancy-cell';
+            row.classList.remove('has-discrepancy');
+            if (!row.classList.contains('already-counted')) {
+                statusCell.innerHTML = '<span class="status-badge status-pending">Pending</span>';
+            }
+        }
+    });
+    
+    document.getElementById('itemsCounted').textContent = counted;
+    document.getElementById('itemsMatched').textContent = matched;
+    document.getElementById('itemsDiscrepancy').textContent = discrepancies;
+    
+    // Require notes if there are discrepancies
+    const notesInput = document.getElementById('notes');
+    if (discrepancies > 0) {
+        notesInput.required = true;
+        notesInput.placeholder = 'Notes required - please explain the discrepancies';
+    } else {
+        notesInput.required = false;
+        notesInput.placeholder = 'Enter any notes about discrepancies or issues found during the count';
+    }
+    
+    // Enable/disable submit button
+    document.getElementById('submitBtn').disabled = counted === 0;
+}
+
+// Add event listeners to all count inputs
+document.querySelectorAll('.count-input').forEach(input => {
+    input.addEventListener('input', updateCounts);
+});
+
+// Clear all counts
+function clearAllCounts() {
+    if (confirm('Clear all entered counts?')) {
+        document.querySelectorAll('.count-input').forEach(input => {
+            input.value = '';
+        });
+        updateCounts();
+    }
+}
+
+// Form validation
+document.getElementById('dailyCountForm')?.addEventListener('submit', function(e) {
+    const counted = parseInt(document.getElementById('itemsCounted').textContent);
+    const discrepancies = parseInt(document.getElementById('itemsDiscrepancy').textContent);
+    const notes = document.getElementById('notes').value.trim();
+    
+    if (counted === 0) {
+        e.preventDefault();
+        alert('Please count at least one item before submitting.');
+        return;
+    }
+    
+    if (discrepancies > 0 && notes === '') {
+        e.preventDefault();
+        alert('Please provide notes explaining the discrepancies.');
+        document.getElementById('notes').focus();
+        return;
+    }
+    
+    if (!confirm(`Submit ${counted} count(s)? ${discrepancies > 0 ? discrepancies + ' discrepancy/ies will require investigation.' : ''}`)) {
+        e.preventDefault();
+    }
+});
+
+// Initialize counts on page load
+updateCounts();
+
+// Verification modal functionality
+function showVerifyModal(countId, medName) {
+    document.getElementById('verify_count_id').value = countId;
+    document.getElementById('verify_med_name').textContent = medName;
+    document.getElementById('verifyModal').style.display = 'flex';
+    document.getElementById('verifier_username').focus();
+}
+
+function closeVerifyModal() {
+    document.getElementById('verifyModal').style.display = 'none';
+    document.getElementById('verifier_username').value = '';
+    document.getElementById('verifier_password').value = '';
+}
+
+// Verify All modal functionality
+function showVerifyAllModal() {
+    document.getElementById('verifyAllModal').style.display = 'flex';
+    document.getElementById('verifier_username_all').focus();
+}
+
+function closeVerifyAllModal() {
+    document.getElementById('verifyAllModal').style.display = 'none';
+    document.getElementById('verifier_username_all').value = '';
+    document.getElementById('verifier_password_all').value = '';
+}
+
+// Close modal on outside click
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('verifyModal');
+    if (modal) {
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                closeVerifyModal();
+            }
+        });
+    }
+    
+    const modalAll = document.getElementById('verifyAllModal');
+    if (modalAll) {
+        modalAll.addEventListener('click', function(e) {
+            if (e.target === modalAll) {
+                closeVerifyAllModal();
+            }
+        });
+    }
+});
+</script>
+
+<!-- Verification Modal -->
+<div id="verifyModal" class="modal" style="display:none;">
+    <div class="modal-content" style="max-width: 450px;">
+        <div class="modal-header">
+            <h3>Verify Count</h3>
+            <button type="button" class="modal-close" onclick="closeVerifyModal()">&times;</button>
+        </div>
+        <form method="POST" action="{{ url_for('verify_count', id=0) }}" id="verifyForm">
+            <input type="hidden" name="count_id" id="verify_count_id">
+            <div class="modal-body">
+                <p class="mb-2">Verifying count for: <strong id="verify_med_name"></strong></p>
+                
+                <div class="alert alert-info mb-2">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                        <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/>
+                        <line x1="12" y1="8" x2="12.01" y2="8"/>
+                    </svg>
+                    <div>
+                        <strong>Verification Required:</strong> Enter your credentials to confirm 
+                        you have independently verified this count.
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="verifier_username" class="form-label required">Your Username</label>
+                    <input type="text" name="verifier_username" id="verifier_username" class="form-control" 
+                           required autocomplete="off" placeholder="Enter your username">
+                </div>
+                <div class="form-group">
+                    <label for="verifier_password" class="form-label required">Your Password</label>
+                    <input type="password" name="verifier_password" id="verifier_password" class="form-control" 
+                           required autocomplete="off" placeholder="Enter your password">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeVerifyModal()">Cancel</button>
+                <button type="submit" class="btn btn-success">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                        <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                    Verify Count
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Verify All Modal -->
+<div id="verifyAllModal" class="modal" style="display:none;">
+    <div class="modal-content" style="max-width: 450px;">
+        <div class="modal-header">
+            <h3>Verify All Counts</h3>
+            <button type="button" class="modal-close" onclick="closeVerifyAllModal()">&times;</button>
+        </div>
+        <form method="POST" action="{{ url_for('verify_all_counts') }}">
+            <div class="modal-body">
+                <div class="alert alert-warning mb-2">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                        <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                    </svg>
+                    <div>
+                        <strong>Bulk Verification:</strong> This will verify all {{ pending_verification|length }} pending counts 
+                        that you did not perform yourself. Counts you performed will be skipped.
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="verifier_username_all" class="form-label required">Your Username</label>
+                    <input type="text" name="verifier_username" id="verifier_username_all" class="form-control" 
+                           required autocomplete="off" placeholder="Enter your username">
+                </div>
+                <div class="form-group">
+                    <label for="verifier_password_all" class="form-label required">Your Password</label>
+                    <input type="password" name="verifier_password" id="verifier_password_all" class="form-control" 
+                           required autocomplete="off" placeholder="Enter your password">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeVerifyAllModal()">Cancel</button>
+                <button type="submit" class="btn btn-success">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                        <polyline points="20 6 9 17 4 12"/>
+                    </svg>
+                    Verify All Counts
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// Update form action when submitting verification
+document.getElementById('verifyForm')?.addEventListener('submit', function(e) {
+    const countId = document.getElementById('verify_count_id').value;
+    this.action = '{{ url_for("verify_count", id=0) }}'.replace('/0/', '/' + countId + '/');
+});
+</script>
+{% endblock %}

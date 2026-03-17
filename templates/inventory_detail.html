@@ -1,0 +1,289 @@
+{% extends "base.html" %}
+
+{% block title %}Inventory Detail - {{ item.medication.name }}{% endblock %}
+{% block page_title %}Inventory Detail{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('inventory') }}" class="btn btn-secondary btn-sm">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+    </svg>
+    Back to Inventory
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="card mb-3">
+    <div class="card-header">
+        <h3 class="card-title">
+            <span class="schedule-badge schedule-{{ item.medication.schedule|lower }}">
+                {{ item.medication.schedule }}
+            </span>
+            {{ item.medication.name }}
+            {% if item.medication.strength %}({{ item.medication.strength }}){% endif %}
+        </h3>
+    </div>
+    <div class="card-body">
+        <div class="detail-grid">
+            <div class="detail-item">
+                <label>NDC</label>
+                <span class="font-mono">{{ item.medication.ndc or 'N/A' }}</span>
+            </div>
+            <div class="detail-item">
+                <label>Form</label>
+                <span>{{ item.medication.form or 'N/A' }}</span>
+            </div>
+            <div class="detail-item">
+                <label>Lot Number</label>
+                <span class="font-mono">{{ item.lot_number or 'N/A' }}</span>
+            </div>
+            <div class="detail-item">
+                <label>Expiration Date</label>
+                {% if item.expiration_date %}
+                <span class="{% if item.is_expired %}text-danger font-bold{% elif item.days_until_expiration <= 90 %}text-warning{% endif %}">
+                    {{ item.expiration_date.strftime('%m/%d/%Y') }}
+                    {% if item.is_expired %}(EXPIRED){% elif item.days_until_expiration <= 90 %}({{ item.days_until_expiration }}d){% endif %}
+                </span>
+                {% else %}
+                <span class="text-muted">Not set</span>
+                {% endif %}
+            </div>
+            <div class="detail-item">
+                <label>Current Quantity</label>
+                <span class="quantity-display {% if item.current_quantity <= 10 %}quantity-low{% endif %}">
+                    {{ item.current_quantity }} {{ item.unit_count or 'units' }}
+                </span>
+            </div>
+            <div class="detail-item">
+                <label>Storage Location</label>
+                <span>{{ item.storage_location or 'Not specified' }}</span>
+            </div>
+            <div class="detail-item">
+                <label>Date Received</label>
+                <span>{{ (item.received_date.strftime('%m/%d/%Y') if item.received_date else (item.date_received.strftime('%m/%d/%Y') if item.date_received else 'N/A')) }}</span>
+            </div>
+            <div class="detail-item">
+                <label>Status</label>
+                {% if item.is_active %}
+                <span class="status-badge status-success">Active</span>
+                {% else %}
+                <span class="status-badge status-inactive">Inactive</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="card mb-3">
+    <div class="card-body">
+        <div class="quick-actions">
+            {% if current_user.role == 'admin' %}
+            <a href="{{ url_for('edit_inventory', id=item.id) }}" class="btn btn-outline">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+                Edit Details
+            </a>
+            {% endif %}
+            <a href="{{ url_for('dispense') }}" class="btn btn-primary">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                </svg>
+                Dispense
+            </a>
+            <a href="{{ url_for('waste') }}" class="btn btn-warning">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                    <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                </svg>
+                Record Waste
+            </a>
+            <a href="{{ url_for('daily_count') }}" class="btn btn-secondary">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                    <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                </svg>
+                Daily Count
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Transaction History -->
+<div class="card mb-3">
+    <div class="card-header">
+        <h3 class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+            </svg>
+            Transaction History
+        </h3>
+    </div>
+    <div class="card-body">
+        {% if transactions %}
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date/Time</th>
+                        <th>Type</th>
+                        <th>Quantity</th>
+                        <th>Balance After</th>
+                        <th>Patient</th>
+                        <th>Performed By</th>
+                        <th>Witness</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for txn in transactions %}
+                    <tr>
+                        <td>{{ txn.performed_at.strftime('%m/%d/%Y %I:%M %p') }}</td>
+                        <td>
+                            <span class="status-badge 
+                                {% if txn.transaction_type == 'receive' %}status-success
+                                {% elif txn.transaction_type == 'dispense' %}status-info
+                                {% elif txn.transaction_type == 'waste' %}status-warning
+                                {% elif txn.transaction_type == 'adjust' %}status-pending
+                                {% else %}status-danger{% endif %}">
+                                {{ txn.transaction_type|title }}
+                            </span>
+                        </td>
+                        <td class="font-mono {% if txn.transaction_type in ['dispense', 'waste', 'loss'] %}text-danger{% else %}text-success{% endif %}">
+                            {% if txn.transaction_type in ['dispense', 'waste', 'loss'] %}-{% else %}+{% endif %}{{ txn.quantity }} {{ item.unit_count or item.medication.unit or 'units' }}
+                        </td>
+                        <td class="font-mono font-bold">{{ txn.balance_after }} {{ item.unit_count or item.medication.unit or 'units' }}</td>
+                        <td>
+                            {% if txn.patient_name %}
+                                {{ txn.patient_name }}
+                                {% if txn.patient_dob %}
+                                <br><small class="text-muted">DOB: {{ txn.patient_dob.strftime('%m/%d/%Y') }}</small>
+                                {% endif %}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td>{{ txn.performer.full_name if txn.performer else '-' }}</td>
+                        <td>{{ txn.witness.full_name if txn.witness else '-' }}</td>
+                        <td>{{ txn.notes or '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48" style="opacity:0.3;">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+            </svg>
+            <h3>No Transactions</h3>
+            <p>No transactions have been recorded for this item yet.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Recent Daily Counts -->
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+            </svg>
+            Recent Daily Counts
+        </h3>
+    </div>
+    <div class="card-body">
+        {% if daily_counts %}
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Expected</th>
+                        <th>Actual</th>
+                        <th>Discrepancy</th>
+                        <th>Counted By</th>
+                        <th>Verified By</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for count in daily_counts %}
+                    <tr>
+                        <td>{{ count.count_date.strftime('%m/%d/%Y') }}</td>
+                        <td class="font-mono">{{ count.expected_quantity }} {{ item.unit_count or item.medication.unit or 'units' }}</td>
+                        <td class="font-mono">{{ count.actual_quantity }} {{ item.unit_count or item.medication.unit or 'units' }}</td>
+                        <td class="font-mono {% if count.discrepancy != 0 %}text-danger font-bold{% else %}text-success{% endif %}">
+                            {% if count.discrepancy > 0 %}+{% endif %}{{ count.discrepancy }}
+                        </td>
+                        <td>{{ count.counter.full_name if count.counter else '-' }}</td>
+                        <td>{{ count.verifier.full_name if count.verifier else '-' }}</td>
+                        <td>
+                            {% if count.verified_by %}
+                            <span class="status-badge status-success">Verified</span>
+                            {% elif count.discrepancy != 0 and not count.discrepancy_resolved %}
+                            <span class="status-badge status-warning">Needs Resolution</span>
+                            {% else %}
+                            <span class="status-badge status-pending">Pending</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48" style="opacity:0.3;">
+                <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+            </svg>
+            <h3>No Daily Counts</h3>
+            <p>No daily counts have been recorded for this item yet.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--spacing-lg);
+}
+
+.detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.detail-item label {
+    font-size: 0.8rem;
+    color: var(--gray-500);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.detail-item span {
+    font-size: 1rem;
+}
+
+.quantity-display {
+    font-size: 1.25rem;
+    font-weight: 600;
+    font-family: var(--font-mono);
+}
+
+.quick-actions {
+    display: flex;
+    gap: var(--spacing-md);
+    flex-wrap: wrap;
+}
+
+.status-info {
+    background: rgba(45, 106, 159, 0.1);
+    color: var(--info);
+}
+</style>
+{% endblock %}
