@@ -1,0 +1,454 @@
+{% extends "base.html" %}
+
+{% block title %}Current Inventory{% endblock %}
+{% block page_title %}Current Inventory{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('receive_inventory') }}" class="btn btn-primary btn-sm">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+    </svg>
+    Receive Inventory
+</a>
+<a href="{{ url_for('export_report', type='inventory', format='pdf') }}" class="btn btn-secondary btn-sm">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+    </svg>
+    Export PDF
+</a>
+{% endblock %}
+
+{% block content %}
+<p class="text-muted mb-3">Physical controlled substance inventory currently on hand. Each row represents a specific lot/batch.</p>
+
+<!-- Search & Filters -->
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="GET" class="search-bar">
+            <div class="search-input-wrapper">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" name="search" class="form-control" placeholder="Search by medication name or lot number..." value="{{ search }}">
+            </div>
+            <div class="filter-group">
+                <select name="schedule" class="form-control" style="width:auto;">
+                    <option value="">All Schedules</option>
+                    <option value="II" {% if schedule_filter == 'II' %}selected{% endif %}>Schedule II</option>
+                    <option value="III" {% if schedule_filter == 'III' %}selected{% endif %}>Schedule III</option>
+                    <option value="IV" {% if schedule_filter == 'IV' %}selected{% endif %}>Schedule IV</option>
+                    <option value="V" {% if schedule_filter == 'V' %}selected{% endif %}>Schedule V</option>
+                </select>
+                <select name="expiring" class="form-control" style="width:auto;">
+                    <option value="">All Items</option>
+                    <option value="30" {% if expiring_filter == '30' %}selected{% endif %}>Expiring 30 Days</option>
+                    <option value="90" {% if expiring_filter == '90' %}selected{% endif %}>Expiring 90 Days</option>
+                    <option value="expired" {% if expiring_filter == 'expired' %}selected{% endif %}>Expired</option>
+                </select>
+                <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.875rem;">
+                    <input type="checkbox" name="show_empty" value="true" {% if show_empty %}checked{% endif %}>
+                    Show empty
+                </label>
+                <button type="submit" class="btn btn-secondary">Filter</button>
+                {% if search or schedule_filter or show_empty or expiring_filter %}
+                <a href="{{ url_for('inventory') }}" class="btn btn-outline">Clear</a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Summary Stats -->
+<div class="inventory-stats mb-3">
+    <div class="inv-stat">
+        <div class="inv-stat-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+            </svg>
+        </div>
+        <div class="inv-stat-content">
+            <span class="inv-stat-value">{{ total_lots }}</span>
+            <span class="inv-stat-label">Active Lots</span>
+        </div>
+    </div>
+    <div class="inv-stat">
+        <div class="inv-stat-icon schedule-ii-bg">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+            </svg>
+        </div>
+        <div class="inv-stat-content">
+            <span class="inv-stat-value">{{ schedule_ii_items|length }}</span>
+            <span class="inv-stat-label">Schedule II Lots</span>
+        </div>
+    </div>
+    <div class="inv-stat {% if expiring_count > 0 %}inv-stat-warning{% endif %}">
+        <div class="inv-stat-icon {% if expiring_count > 0 %}warning-bg{% endif %}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+            </svg>
+        </div>
+        <div class="inv-stat-content">
+            <span class="inv-stat-value">{{ expiring_count }}</span>
+            <span class="inv-stat-label">Expiring ≤90 Days</span>
+        </div>
+    </div>
+    <div class="inv-stat {% if expired_count > 0 %}inv-stat-danger{% endif %}">
+        <div class="inv-stat-icon {% if expired_count > 0 %}danger-bg{% endif %}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="24" height="24">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+        </div>
+        <div class="inv-stat-content">
+            <span class="inv-stat-value">{{ expired_count }}</span>
+            <span class="inv-stat-label">Expired</span>
+        </div>
+    </div>
+</div>
+
+<!-- Schedule II Inventory (Separate per DEA) -->
+{% if schedule_ii_items %}
+<div class="inventory-section">
+    <div class="section-header">
+        <div class="section-title-row">
+            <span class="schedule-indicator schedule-ii">SCHEDULE II</span>
+            <h2>Controlled Substances</h2>
+        </div>
+        <span class="section-note">DEA requires separate recordkeeping for Schedule II substances</span>
+    </div>
+    
+    <div class="card">
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Medication</th>
+                        <th>Lot Number</th>
+                        <th>Received</th>
+                        <th>Expiration</th>
+                        <th class="text-right">Qty On Hand</th>
+                        <th>Storage Location</th>
+                        <th>Supplier</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in schedule_ii_items %}
+                    <tr class="{% if item.is_expired %}row-expired{% elif item.days_until_expiration <= 30 %}row-expiring{% endif %}">
+                        <td>
+                            <a href="{{ url_for('medication_detail', id=item.medication.id) }}" class="med-link">
+                                <strong>{{ item.medication.name }}</strong>
+                            </a>
+                            <br><small class="text-muted">{{ item.medication.strength or '' }} {{ item.medication.form or '' }}</small>
+                        </td>
+                        <td class="font-mono">{{ item.lot_number or '-' }}</td>
+                        <td>{{ (item.date_received.strftime('%m/%d/%Y') if item.date_received else (item.received_date.strftime('%m/%d/%Y') if item.received_date else '-')) }}</td>
+                        <td>
+                            {% if item.expiration_date %}
+                            <span class="exp-date {% if item.is_expired %}exp-expired{% elif item.days_until_expiration <= 30 %}exp-soon{% elif item.days_until_expiration <= 90 %}exp-warning{% endif %}">
+                                {{ item.expiration_date.strftime('%m/%d/%Y') }}
+                            </span>
+                            {% if item.is_expired %}
+                            <span class="exp-tag exp-tag-expired">EXPIRED</span>
+                            {% elif item.days_until_expiration <= 30 %}
+                            <span class="exp-tag exp-tag-soon">{{ item.days_until_expiration }}d</span>
+                            {% endif %}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td class="text-right">
+                            <span class="qty-display {% if item.current_quantity <= 0 %}qty-zero{% endif %}">
+                                {{ '%g'|format(item.current_quantity) }}
+                            </span>
+                            <small class="text-muted">{{ item.unit_count or item.medication.unit or 'units' }}</small>
+                        </td>
+                        <td>{{ item.storage_location or '-' }}</td>
+                        <td>{{ item.supplier_name or '-' }}</td>
+                        <td>
+                            <div class="btn-group">
+                                <a href="{{ url_for('inventory_detail', id=item.id) }}" class="btn btn-outline btn-sm" title="View Details">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                        <circle cx="12" cy="12" r="3"/>
+                                    </svg>
+                                </a>
+                                {% if current_user.role == 'admin' %}
+                                <a href="{{ url_for('edit_inventory', id=item.id) }}" class="btn btn-outline btn-sm" title="Edit">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                                    </svg>
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Other Schedules -->
+{% if other_items %}
+<div class="inventory-section">
+    <div class="section-header">
+        <div class="section-title-row">
+            <h2>Schedules III-V Controlled Substances</h2>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Schedule</th>
+                        <th>Medication</th>
+                        <th>Lot Number</th>
+                        <th>Received</th>
+                        <th>Expiration</th>
+                        <th class="text-right">Qty On Hand</th>
+                        <th>Storage Location</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in other_items %}
+                    <tr class="{% if item.is_expired %}row-expired{% elif item.days_until_expiration <= 30 %}row-expiring{% endif %}">
+                        <td>
+                            <span class="schedule-badge schedule-{{ item.medication.schedule|lower }}">{{ item.medication.schedule }}</span>
+                        </td>
+                        <td>
+                            <a href="{{ url_for('medication_detail', id=item.medication.id) }}" class="med-link">
+                                <strong>{{ item.medication.name }}</strong>
+                            </a>
+                            <br><small class="text-muted">{{ item.medication.strength or '' }} {{ item.medication.form or '' }}</small>
+                        </td>
+                        <td class="font-mono">{{ item.lot_number or '-' }}</td>
+                        <td>{{ (item.date_received.strftime('%m/%d/%Y') if item.date_received else (item.received_date.strftime('%m/%d/%Y') if item.received_date else '-')) }}</td>
+                        <td>
+                            {% if item.expiration_date %}
+                            <span class="exp-date {% if item.is_expired %}exp-expired{% elif item.days_until_expiration <= 30 %}exp-soon{% elif item.days_until_expiration <= 90 %}exp-warning{% endif %}">
+                                {{ item.expiration_date.strftime('%m/%d/%Y') }}
+                            </span>
+                            {% if item.is_expired %}
+                            <span class="exp-tag exp-tag-expired">EXPIRED</span>
+                            {% elif item.days_until_expiration <= 30 %}
+                            <span class="exp-tag exp-tag-soon">{{ item.days_until_expiration }}d</span>
+                            {% endif %}
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td class="text-right">
+                            <span class="qty-display {% if item.current_quantity <= 0 %}qty-zero{% endif %}">
+                                {{ '%g'|format(item.current_quantity) }}
+                            </span>
+                            <small class="text-muted">{{ item.unit_count or item.medication.unit or 'units' }}</small>
+                        </td>
+                        <td>{{ item.storage_location or '-' }}</td>
+                        <td>
+                            <div class="btn-group">
+                                <a href="{{ url_for('inventory_detail', id=item.id) }}" class="btn btn-outline btn-sm" title="View Details">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                        <circle cx="12" cy="12" r="3"/>
+                                    </svg>
+                                </a>
+                                {% if current_user.role == 'admin' %}
+                                <a href="{{ url_for('edit_inventory', id=item.id) }}" class="btn btn-outline btn-sm" title="Edit">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                                    </svg>
+                                </a>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% if not schedule_ii_items and not other_items %}
+<div class="card">
+    <div class="card-body">
+        <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+            </svg>
+            <h3>No Inventory On Hand</h3>
+            <p class="text-muted">{% if search or schedule_filter or expiring_filter %}Try adjusting your filters or {% endif %}<a href="{{ url_for('receive_inventory') }}">receive new inventory</a>.</p>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<style>
+.inventory-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
+}
+
+.inv-stat {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 1rem 1.25rem;
+}
+
+.inv-stat-icon {
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--gray-100);
+    border-radius: var(--radius-md);
+    color: var(--gray-600);
+}
+
+.inv-stat-icon.schedule-ii-bg {
+    background: rgba(185, 28, 28, 0.1);
+    color: var(--danger);
+}
+
+.inv-stat-icon.warning-bg {
+    background: rgba(181, 137, 0, 0.1);
+    color: var(--warning);
+}
+
+.inv-stat-icon.danger-bg {
+    background: rgba(185, 28, 28, 0.1);
+    color: var(--danger);
+}
+
+.inv-stat-content {
+    display: flex;
+    flex-direction: column;
+}
+
+.inv-stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.inv-stat-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.inv-stat-warning .inv-stat-value { color: var(--warning); }
+.inv-stat-danger .inv-stat-value { color: var(--danger); }
+
+.inventory-section {
+    margin-bottom: 2rem;
+}
+
+.section-header {
+    margin-bottom: 1rem;
+}
+
+.section-title-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.section-title-row h2 {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.section-note {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 0.25rem;
+    display: block;
+}
+
+.schedule-indicator {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+}
+
+.schedule-indicator.schedule-ii {
+    background: rgba(185, 28, 28, 0.15);
+    color: var(--danger);
+}
+
+.med-link {
+    color: inherit;
+    text-decoration: none;
+}
+
+.med-link:hover strong {
+    color: var(--primary);
+    text-decoration: underline;
+}
+
+.qty-display {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.qty-zero {
+    color: var(--danger);
+}
+
+.exp-date {
+    white-space: nowrap;
+}
+
+.exp-date.exp-expired { color: var(--danger); font-weight: 600; }
+.exp-date.exp-soon { color: var(--warning); }
+.exp-date.exp-warning { color: var(--warning); }
+
+.exp-tag {
+    display: inline-block;
+    padding: 0.1rem 0.4rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin-left: 0.5rem;
+}
+
+.exp-tag-expired {
+    background: var(--danger);
+    color: white;
+}
+
+.exp-tag-soon {
+    background: var(--warning);
+    color: white;
+}
+
+.row-expired {
+    background: rgba(185, 28, 28, 0.05);
+}
+
+.row-expiring {
+    background: rgba(181, 137, 0, 0.05);
+}
+</style>
+{% endblock %}

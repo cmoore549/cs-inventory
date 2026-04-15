@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}Waste Log{% endblock %}
+{% block page_title %}Waste Log{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('reports') }}" class="btn btn-secondary btn-sm">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+    </svg>
+    Back to Reports
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="GET" class="search-bar">
+            <div class="filter-group" style="flex-wrap: wrap;">
+                <div class="form-group" style="margin-bottom:0;">
+                    <label class="form-label">Start Date</label>
+                    <input type="date" name="start_date" class="form-control" value="{{ start_date or '' }}">
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label class="form-label">End Date</label>
+                    <input type="date" name="end_date" class="form-control" value="{{ end_date or '' }}">
+                </div>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label class="form-label">Schedule</label>
+                    <select name="schedule" class="form-control" style="width:auto;">
+                        <option value="">All Schedules</option>
+                        <option value="II" {% if schedule_filter == 'II' %}selected{% endif %}>Schedule II</option>
+                        <option value="III" {% if schedule_filter == 'III' %}selected{% endif %}>Schedule III</option>
+                        <option value="IV" {% if schedule_filter == 'IV' %}selected{% endif %}>Schedule IV</option>
+                        <option value="V" {% if schedule_filter == 'V' %}selected{% endif %}>Schedule V</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom:0; align-self: flex-end;">
+                    <button type="submit" class="btn btn-primary">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                        </svg>
+                        Filter
+                    </button>
+                    <a href="{{ url_for('waste_log') }}" class="btn btn-secondary">Clear</a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            </svg>
+            Waste Records ({{ transactions|length }}{% if transactions|length >= 500 %}+{% endif %})
+        </h3>
+        <div class="btn-group">
+            <a href="{{ url_for('export_report', type='waste', start_date=start_date or '', end_date=end_date or '', format='pdf') }}" 
+               class="btn btn-primary btn-sm">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+                Export PDF
+            </a>
+        </div>
+    </div>
+    <div class="card-body">
+        {% if transactions %}
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date/Time</th>
+                        <th>Medication</th>
+                        <th>Lot #</th>
+                        <th class="text-right">Qty</th>
+                        <th>Reason</th>
+                        <th>Wasted By</th>
+                        <th>Witness</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for tx in transactions %}
+                    <tr>
+                        <td class="font-mono">{{ tx.performed_at.strftime('%m/%d/%Y %I:%M %p') }}</td>
+                        <td>
+                            <span class="schedule-badge schedule-{{ tx.inventory_item.medication.schedule|lower }}">{{ tx.inventory_item.medication.schedule }}</span>
+                            {{ tx.inventory_item.medication.name }}
+                            {% if tx.inventory_item.medication.strength %}
+                            <br><small class="text-muted">{{ tx.inventory_item.medication.strength }}</small>
+                            {% endif %}
+                        </td>
+                        <td class="font-mono">{{ tx.inventory_item.lot_number or '-' }}</td>
+                        <td class="text-right font-mono font-bold text-danger">{{ tx.quantity }} {{ tx.inventory_item.unit_count or tx.inventory_item.medication.unit or 'units' }}</td>
+                        <td>{{ tx.waste_reason or '-' }}</td>
+                        <td>{{ tx.performer.full_name if tx.performer else '-' }}</td>
+                        <td>{{ tx.witness.full_name if tx.witness else '-' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" width="48" height="48" style="opacity: 0.3;">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            </svg>
+            <h3>No Waste Records Found</h3>
+            <p class="text-muted">No medications have been wasted in the selected date range.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

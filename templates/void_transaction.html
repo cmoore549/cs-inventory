@@ -1,0 +1,261 @@
+{% extends "base.html" %}
+
+{% block title %}Void Transaction{% endblock %}
+{% block page_title %}Void Transaction{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('usage_report') }}" class="btn btn-secondary btn-sm">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+    </svg>
+    Back to Transactions
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="form-container" style="max-width: 700px;">
+    <div class="alert alert-danger">
+        <h4>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/>
+                <line x1="9" y1="9" x2="15" y2="15"/>
+            </svg>
+            Warning: This action cannot be undone
+        </h4>
+        <p>Voiding this transaction will reverse the inventory change and mark the transaction as voided in all reports.</p>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">Transaction Details</h3>
+        </div>
+        <div class="card-body">
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <label>Transaction ID</label>
+                    <span class="font-mono">#{{ transaction.id }}</span>
+                </div>
+                <div class="detail-item">
+                    <label>Type</label>
+                    <span class="status-badge status-{{ 'danger' if transaction.transaction_type == 'waste' else 'warning' if transaction.transaction_type == 'adjust' else 'primary' }}">
+                        {{ transaction.transaction_type|title }}
+                    </span>
+                </div>
+                <div class="detail-item">
+                    <label>Date/Time</label>
+                    <span>{{ transaction.performed_at.strftime('%m/%d/%Y at %I:%M %p') }}</span>
+                </div>
+                <div class="detail-item">
+                    <label>Performed By</label>
+                    <span>{{ transaction.performer.full_name if transaction.performer else '-' }}</span>
+                </div>
+            </div>
+            
+            <hr style="margin: 1.5rem 0;">
+            
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <label>Medication</label>
+                    <span>
+                        <span class="schedule-badge schedule-{{ transaction.inventory_item.medication.schedule|lower }}">{{ transaction.inventory_item.medication.schedule }}</span>
+                        {{ transaction.inventory_item.medication.name }}
+                        {% if transaction.inventory_item.medication.strength %}({{ transaction.inventory_item.medication.strength }}){% endif %}
+                    </span>
+                </div>
+                <div class="detail-item">
+                    <label>Lot Number</label>
+                    <span class="font-mono">{{ transaction.inventory_item.lot_number or '-' }}</span>
+                </div>
+                <div class="detail-item">
+                    <label>Quantity</label>
+                    <span class="font-mono font-bold text-danger">
+                        {% if transaction.transaction_type == 'adjust' %}
+                            {% if transaction.quantity > 0 %}+{% endif %}
+                        {% endif %}
+                        {{ transaction.quantity }} {{ transaction.inventory_item.unit_count or transaction.inventory_item.medication.unit or 'units' }}
+                    </span>
+                </div>
+                <div class="detail-item">
+                    <label>Current Inventory</label>
+                    <span class="font-mono">{{ transaction.inventory_item.current_quantity }} {{ transaction.inventory_item.unit_count or transaction.inventory_item.medication.unit or 'units' }}</span>
+                </div>
+            </div>
+            
+            {% if transaction.transaction_type == 'dispense' %}
+            <hr style="margin: 1.5rem 0;">
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <label>Patient</label>
+                    <span>{{ transaction.patient_name or '-' }}</span>
+                </div>
+                {% if transaction.patient_dob %}
+                <div class="detail-item">
+                    <label>DOB</label>
+                    <span>{{ transaction.patient_dob.strftime('%m/%d/%Y') }}</span>
+                </div>
+                {% endif %}
+            </div>
+            {% elif transaction.transaction_type == 'waste' %}
+            <hr style="margin: 1.5rem 0;">
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <label>Waste Reason</label>
+                    <span>{{ transaction.waste_reason or '-' }}</span>
+                </div>
+                <div class="detail-item">
+                    <label>Original Witness</label>
+                    <span>{{ transaction.witness.full_name if transaction.witness else '-' }}</span>
+                </div>
+            </div>
+            {% elif transaction.transaction_type == 'adjust' %}
+            <hr style="margin: 1.5rem 0;">
+            <div class="detail-grid">
+                <div class="detail-item" style="grid-column: span 2;">
+                    <label>Adjustment Reason</label>
+                    <span>{{ transaction.adjustment_reason or '-' }}</span>
+                </div>
+                {% if transaction.witness %}
+                <div class="detail-item">
+                    <label>Original Witness</label>
+                    <span>{{ transaction.witness.full_name }}</span>
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card mt-3">
+        <div class="card-header">
+            <h3 class="card-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                    <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/>
+                    <line x1="9" y1="9" x2="15" y2="15"/>
+                </svg>
+                Void This Transaction
+            </h3>
+        </div>
+        <div class="card-body">
+            <form method="POST">
+                <div class="form-group">
+                    <label for="void_reason" class="form-label required">Reason for Voiding</label>
+                    <textarea name="void_reason" id="void_reason" class="form-control" rows="3" required
+                              placeholder="Explain why this transaction is being voided (e.g., data entry error, incorrect patient, medication was found)..."></textarea>
+                </div>
+                
+                <!-- Witness Verification Section -->
+                <div class="witness-section">
+                    <div class="witness-card">
+                        <h4>
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                                <circle cx="9" cy="7" r="4"/>
+                                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                            </svg>
+                            Witness Verification Required
+                        </h4>
+                        <p class="text-muted">A witness must verify this void. The witness confirms they reviewed the void reason and agree it is appropriate.</p>
+                        <div class="witness-fields">
+                            <div class="form-group">
+                                <label for="witness_id" class="form-label required">Witness</label>
+                                <select name="witness_id" id="witness_id" class="form-control" required>
+                                    <option value="">-- Select Witness --</option>
+                                    {% for user in witnesses %}
+                                    <option value="{{ user.id }}">{{ user.full_name }}{% if user.credentials %} ({{ user.credentials }}){% endif %}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="witness_password" class="form-label required">Witness Password</label>
+                                <input type="password" name="witness_password" id="witness_password" class="form-control" required autocomplete="off">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="alert alert-info mt-3">
+                    <strong>What happens when voided:</strong>
+                    <ul style="margin: 0.5rem 0 0 1rem; padding: 0;">
+                        {% if transaction.transaction_type in ['dispense', 'waste'] %}
+                        <li>{{ transaction.quantity }} {{ transaction.inventory_item.unit_count or transaction.inventory_item.medication.unit or 'units' }} will be <strong>returned to inventory</strong></li>
+                        <li>New inventory balance: <strong>{{ transaction.inventory_item.current_quantity + transaction.quantity }}</strong> {{ transaction.inventory_item.unit_count or transaction.inventory_item.medication.unit or 'units' }}</li>
+                        {% else %}
+                        <li>Adjustment of {{ transaction.quantity }} will be <strong>reversed</strong></li>
+                        <li>New inventory balance: <strong>{{ transaction.inventory_item.current_quantity - transaction.quantity }}</strong> {{ transaction.inventory_item.unit_count or transaction.inventory_item.medication.unit or 'units' }}</li>
+                        {% endif %}
+                        <li>Transaction will be marked as <span class="status-badge status-danger" style="font-size: 0.75rem;">VOIDED</span> in all reports</li>
+                        <li>A reversal transaction will be created for audit trail</li>
+                    </ul>
+                </div>
+                
+                <div class="form-actions" style="display: flex; gap: 1rem; margin-top: 1.5rem;">
+                    <button type="submit" class="btn btn-danger">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                            <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/>
+                            <line x1="9" y1="9" x2="15" y2="15"/>
+                        </svg>
+                        Void Transaction
+                    </button>
+                    <a href="{{ url_for('usage_report') }}" class="btn btn-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+.detail-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+
+.detail-item label {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--gray-600);
+    margin-bottom: 0.25rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.detail-item span {
+    font-weight: 500;
+}
+
+/* Witness Section */
+.witness-section {
+    margin-top: 1rem;
+}
+.witness-card {
+    background: rgba(30, 77, 107, 0.03);
+    border: 2px solid var(--primary);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+}
+.witness-card h4 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.witness-card > p {
+    margin: 0 0 1rem 0;
+    font-size: 0.875rem;
+}
+.witness-fields {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+
+@media (max-width: 600px) {
+    .detail-grid, .witness-fields {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+{% endblock %}

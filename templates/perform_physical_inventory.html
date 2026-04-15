@@ -1,0 +1,475 @@
+{% extends "base.html" %}
+
+{% block title %}Physical Inventory Count{% endblock %}
+{% block page_title %}Physical Inventory Count{% endblock %}
+
+{% block header_actions %}
+{% if current_user.role == 'admin' %}
+<form method="POST" action="{{ url_for('delete_physical_inventory', id=inventory.id) }}" style="display: inline;"
+      onsubmit="return confirm('Are you sure you want to delete this inventory count? This cannot be undone.');">
+    <button type="submit" class="btn btn-danger btn-sm">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+            <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+        </svg>
+        Delete
+    </button>
+</form>
+{% endif %}
+<a href="{{ url_for('physical_inventory_list') }}" class="btn btn-secondary btn-sm">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+    </svg>
+    Back to List
+</a>
+{% endblock %}
+
+{% block content %}
+{% set clinic_items = inventory.count_items | selectattr('inventory_item_id') | list %}
+{% set patient_items = inventory.count_items | selectattr('patient_medication_id') | list %}
+
+<!-- Count Type Banner -->
+<div class="count-type-banner 
+    {% if inventory.inventory_type == 'daily' %}banner-daily
+    {% elif inventory.inventory_type == 'schedule2' %}banner-schedule2
+    {% else %}banner-full{% endif %}">
+    <div class="banner-icon">
+        {% if inventory.inventory_type == 'daily' %}
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="28" height="28">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+            <path d="M9 16l2 2 4-4"/>
+        </svg>
+        {% elif inventory.inventory_type == 'schedule2' %}
+        <span class="schedule-badge schedule-ii" style="font-size: 1.2rem; padding: 0.3rem 0.6rem;">II</span>
+        {% else %}
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="28" height="28">
+            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+        </svg>
+        {% endif %}
+    </div>
+    <div class="banner-text">
+        <strong>
+            {% if inventory.inventory_type == 'daily' %}DAILY COUNT
+            {% elif inventory.inventory_type == 'full' %}FULL INVENTORY
+            {% elif inventory.inventory_type == 'schedule2' %}SCHEDULE II COUNT
+            {% else %}SPOT CHECK{% endif %}
+        </strong>
+        <span>{{ inventory.inventory_date.strftime('%B %d, %Y') }}</span>
+    </div>
+    <div class="banner-progress">
+        <span class="progress-text"><span class="font-mono font-bold">{{ inventory.counted_items }}</span> of <span class="font-mono font-bold">{{ inventory.total_items }}</span> counted</span>
+        {% if inventory.discrepancy_count > 0 %}
+        <span class="status-badge status-danger">{{ inventory.discrepancy_count }} discrepancies</span>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <div class="progress-bar mb-3">
+            <div class="progress-fill" style="width: {{ (inventory.counted_items / inventory.total_items * 100) if inventory.total_items > 0 else 0 }}%;"></div>
+        </div>
+        
+        <form method="POST" action="{{ url_for('submit_physical_count', id=inventory.id) }}">
+            {% if clinic_items %}
+            <h4 class="section-title">Clinic Inventory ({{ clinic_items|length }} items)</h4>
+            <div class="table-container mb-4">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Medication</th>
+                            <th>Lot #</th>
+                            <th>Location</th>
+                            <th class="text-right">Expected</th>
+                            <th>Actual Count</th>
+                            <th>Variance</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in clinic_items %}
+                        {% set unit = item.inventory_item.unit_count or item.inventory_item.medication.unit or 'units' %}
+                        <tr class="{% if item.actual_quantity is not none and item.discrepancy != 0 %}row-warning{% endif %}">
+                            <td>
+                                <span class="schedule-badge schedule-{{ item.inventory_item.medication.schedule|lower }}">
+                                    {{ item.inventory_item.medication.schedule }}
+                                </span>
+                                {{ item.inventory_item.medication.name }}
+                                {% if item.inventory_item.medication.strength %}
+                                <br><small class="text-muted">{{ item.inventory_item.medication.strength }}</small>
+                                {% endif %}
+                            </td>
+                            <td class="font-mono">{{ item.inventory_item.lot_number or '-' }}</td>
+                            <td>{{ item.inventory_item.storage_location or '-' }}</td>
+                            <td class="text-right">
+                                <span class="expected-qty">{{ item.expected_quantity }}</span>
+                                <span class="unit-label">{{ unit }}</span>
+                            </td>
+                            <td>
+                                <div class="count-input-group">
+                                    <input type="number" name="qty_{{ item.id }}" class="form-control count-input" 
+                                           step="0.01" min="0"
+                                           value="{{ item.actual_quantity if item.actual_quantity is not none else '' }}"
+                                           onchange="updateVariance(this, {{ item.expected_quantity }}, {{ item.id }})"
+                                           placeholder="0">
+                                    <span class="input-unit">{{ unit }}</span>
+                                </div>
+                            </td>
+                            <td class="font-mono" id="variance_{{ item.id }}">
+                                {% if item.actual_quantity is not none %}
+                                    {% set var = item.actual_quantity - item.expected_quantity %}
+                                    <span class="{% if var != 0 %}text-danger{% else %}text-success{% endif %}">
+                                        {% if var > 0 %}+{% endif %}{{ var }}
+                                    </span>
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                            <td>
+                                <input type="text" name="notes_{{ item.id }}" class="form-control" 
+                                       style="width: 120px;" placeholder="Notes"
+                                       value="{{ item.discrepancy_notes or '' }}">
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+            
+            {% if patient_items %}
+            <h4 class="section-title patient-section-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20" style="vertical-align: -4px;">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                </svg>
+                Patient Stock ({{ patient_items|length }} items)
+            </h4>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Patient</th>
+                            <th>Medication</th>
+                            <th>Lot #</th>
+                            <th>Location</th>
+                            <th class="text-right">Expected</th>
+                            <th>Actual Count</th>
+                            <th>Variance</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in patient_items %}
+                        {% set unit = item.patient_medication.unit or item.patient_medication.medication.unit or 'units' %}
+                        <tr class="patient-row {% if item.actual_quantity is not none and item.discrepancy != 0 %}row-warning{% endif %}">
+                            <td>
+                                <strong>{{ item.patient_medication.patient_name }}</strong>
+                                {% if item.patient_medication.patient_mrn %}
+                                <br><small class="text-muted">MRN: {{ item.patient_medication.patient_mrn }}</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="schedule-badge schedule-{{ item.patient_medication.medication.schedule|lower }}">
+                                    {{ item.patient_medication.medication.schedule }}
+                                </span>
+                                {{ item.patient_medication.medication.name }}
+                                {% if item.patient_medication.medication.strength %}
+                                <br><small class="text-muted">{{ item.patient_medication.medication.strength }}</small>
+                                {% endif %}
+                            </td>
+                            <td class="font-mono">{{ item.patient_medication.lot_number or '-' }}</td>
+                            <td>{{ item.patient_medication.storage_location or '-' }}</td>
+                            <td class="text-right">
+                                <span class="expected-qty">{{ item.expected_quantity }}</span>
+                                <span class="unit-label">{{ unit }}</span>
+                            </td>
+                            <td>
+                                <div class="count-input-group">
+                                    <input type="number" name="qty_{{ item.id }}" class="form-control count-input" 
+                                           step="0.01" min="0"
+                                           value="{{ item.actual_quantity if item.actual_quantity is not none else '' }}"
+                                           onchange="updateVariance(this, {{ item.expected_quantity }}, {{ item.id }})"
+                                           placeholder="0">
+                                    <span class="input-unit">{{ unit }}</span>
+                                </div>
+                            </td>
+                            <td class="font-mono" id="variance_{{ item.id }}">
+                                {% if item.actual_quantity is not none %}
+                                    {% set var = item.actual_quantity - item.expected_quantity %}
+                                    <span class="{% if var != 0 %}text-danger{% else %}text-success{% endif %}">
+                                        {% if var > 0 %}+{% endif %}{{ var }}
+                                    </span>
+                                {% else %}
+                                -
+                                {% endif %}
+                            </td>
+                            <td>
+                                <input type="text" name="notes_{{ item.id }}" class="form-control" 
+                                       style="width: 120px;" placeholder="Notes"
+                                       value="{{ item.discrepancy_notes or '' }}">
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+            
+            <!-- Witness Verification Section -->
+            <div class="witness-section mt-3">
+                <div class="witness-card">
+                    <h4>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                            <circle cx="9" cy="7" r="4"/>
+                            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                        </svg>
+                        Witness Verification Required
+                    </h4>
+                    <p class="text-muted">A witness must verify this count. The witness confirms they observed the counting process.</p>
+                    <div class="witness-fields">
+                        <div class="form-group">
+                            <label for="witness_id" class="form-label required">Witness</label>
+                            <select name="witness_id" id="witness_id" class="form-control" required>
+                                <option value="">-- Select Witness --</option>
+                                {% for user in witnesses %}
+                                <option value="{{ user.id }}">{{ user.full_name }}{% if user.credentials %} ({{ user.credentials }}){% endif %}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="witness_password" class="form-label required">Witness Password</label>
+                            <input type="password" name="witness_password" id="witness_password" class="form-control" required autocomplete="off">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-actions mt-3">
+                <button type="submit" class="btn btn-primary">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                        <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+                    </svg>
+                    Save Counts
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if inventory.counted_items == inventory.total_items and inventory.total_items > 0 %}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Complete Inventory</h3>
+    </div>
+    <div class="card-body">
+        <p>All items have been counted and verified by a witness. Review the counts above, then complete the inventory.</p>
+        
+        {% if inventory.discrepancy_count > 0 %}
+        <div class="alert alert-warning">
+            <strong>Warning:</strong> {{ inventory.discrepancy_count }} discrepanc{{ 'y' if inventory.discrepancy_count == 1 else 'ies' }} found. 
+            These will need to be investigated and resolved.
+        </div>
+        {% endif %}
+        
+        <form method="POST" action="{{ url_for('complete_physical_inventory', id=inventory.id) }}">
+            <button type="submit" class="btn btn-success btn-lg">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                    <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                Complete Inventory
+            </button>
+        </form>
+    </div>
+</div>
+{% endif %}
+
+<script>
+function updateVariance(input, expected, itemId) {
+    const actual = parseFloat(input.value);
+    const varianceCell = document.getElementById('variance_' + itemId);
+    
+    if (isNaN(actual)) {
+        varianceCell.innerHTML = '-';
+        return;
+    }
+    
+    const variance = actual - expected;
+    let colorClass = variance !== 0 ? 'text-danger' : 'text-success';
+    let prefix = variance > 0 ? '+' : '';
+    
+    varianceCell.innerHTML = `<span class="${colorClass}">${prefix}${variance}</span>`;
+    
+    // Highlight row if discrepancy
+    const row = input.closest('tr');
+    if (variance !== 0) {
+        row.classList.add('row-warning');
+    } else {
+        row.classList.remove('row-warning');
+    }
+}
+</script>
+
+<style>
+/* Count Type Banner */
+.count-type-banner {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.5rem;
+    border-radius: var(--radius);
+    margin-bottom: 1rem;
+    background: var(--gray-100);
+    border: 2px solid var(--border);
+}
+.count-type-banner.banner-daily {
+    background: rgba(45, 122, 79, 0.1);
+    border-color: var(--success);
+}
+.count-type-banner.banner-schedule2 {
+    background: rgba(185, 28, 28, 0.08);
+    border-color: #b91c1c;
+}
+.count-type-banner.banner-full {
+    background: rgba(30, 77, 107, 0.08);
+    border-color: var(--primary);
+}
+.banner-icon {
+    flex-shrink: 0;
+}
+.banner-daily .banner-icon {
+    color: var(--success);
+}
+.banner-schedule2 .banner-icon {
+    color: #b91c1c;
+}
+.banner-full .banner-icon {
+    color: var(--primary);
+}
+.banner-text {
+    flex: 1;
+}
+.banner-text strong {
+    display: block;
+    font-size: 1.1rem;
+    letter-spacing: 0.5px;
+}
+.banner-text span {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+.banner-progress {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+.progress-text {
+    white-space: nowrap;
+}
+
+/* Progress bar */
+.progress-bar {
+    height: 8px;
+    background: var(--gray-200);
+    border-radius: 4px;
+    overflow: hidden;
+}
+.progress-fill {
+    height: 100%;
+    background: var(--primary);
+    transition: width 0.3s;
+}
+
+/* Section titles */
+.section-title {
+    font-size: 1rem;
+    font-weight: 600;
+    margin: 1.5rem 0 0.75rem 0;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--border);
+    color: var(--text);
+}
+.patient-section-title {
+    color: var(--info);
+    border-color: var(--info);
+}
+
+/* Row styling */
+.row-warning {
+    background: rgba(181, 137, 0, 0.1);
+}
+.patient-row {
+    background: rgba(23, 162, 184, 0.05);
+}
+.patient-row:hover {
+    background: rgba(23, 162, 184, 0.1);
+}
+
+/* Expected quantity with units */
+.expected-qty {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 1.1rem;
+}
+.unit-label {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: lowercase;
+}
+
+/* Count input with unit */
+.count-input-group {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+.count-input {
+    width: 80px !important;
+    text-align: right;
+    font-weight: 600;
+}
+.input-unit {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    min-width: 45px;
+}
+
+/* Witness Section */
+.witness-section {
+    margin-top: 1.5rem;
+}
+.witness-card {
+    background: rgba(30, 77, 107, 0.03);
+    border: 2px solid var(--primary);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem;
+}
+.witness-card h4 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.witness-card p {
+    margin: 0 0 1rem 0;
+    font-size: 0.875rem;
+}
+.witness-fields {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+@media (max-width: 600px) {
+    .witness-fields {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+{% endblock %}

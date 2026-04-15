@@ -1,0 +1,172 @@
+{% extends "base.html" %}
+
+{% block title %}{% if medication %}Edit{% else %}Add{% endif %} Medication{% endblock %}
+{% block page_title %}{% if medication %}Edit{% else %}Add New{% endif %} Medication{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('medications') }}" class="btn btn-secondary btn-sm">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+    </svg>
+    Back to Medications
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="form-container">
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">
+                <svg viewBox="-1 -1 26 26" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                    <path d="M19.5 12.5L12 20a4.82 4.82 0 0 1-7 0 4.82 4.82 0 0 1 0-7l7.5-7.5a4.82 4.82 0 0 1 7 0 4.82 4.82 0 0 1 0 7z"/>
+                    <line x1="8.5" y1="15.5" x2="15.5" y2="8.5"/>
+                </svg>
+                {% if medication %}Edit{% else %}Add{% endif %} Medication
+            </h3>
+        </div>
+        <div class="card-body">
+            <form method="POST" class="needs-validation">
+                <!-- Basic Information -->
+                <div class="form-section">
+                    <h4 class="form-section-title">Basic Information</h4>
+                    
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 2;">
+                            <label for="name" class="form-label required">Brand/Trade Name</label>
+                            <input type="text" name="name" id="name" class="form-control" required
+                                   value="{{ medication.name if medication else '' }}"
+                                   placeholder="e.g., OxyContin, Adderall XR">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="schedule" class="form-label required">DEA Schedule</label>
+                            <select name="schedule" id="schedule" class="form-control" required>
+                                <option value="">Select...</option>
+                                <option value="II" {% if medication and medication.schedule == 'II' %}selected{% endif %}>Schedule II</option>
+                                <option value="III" {% if medication and medication.schedule == 'III' %}selected{% endif %}>Schedule III</option>
+                                <option value="IV" {% if medication and medication.schedule == 'IV' %}selected{% endif %}>Schedule IV</option>
+                                <option value="V" {% if medication and medication.schedule == 'V' %}selected{% endif %}>Schedule V</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 2;">
+                            <label for="generic_name" class="form-label">Generic Name</label>
+                            <input type="text" name="generic_name" id="generic_name" class="form-control"
+                                   value="{{ medication.generic_name if medication else '' }}"
+                                   placeholder="e.g., oxycodone, amphetamine/dextroamphetamine">
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Drug Details -->
+                <div class="form-section">
+                    <h4 class="form-section-title">Drug Details</h4>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="strength" class="form-label">Strength</label>
+                            <input type="text" name="strength" id="strength" class="form-control"
+                                   value="{{ medication.strength if medication else '' }}"
+                                   placeholder="e.g., 10mg, 5mg/5mL">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="form" class="form-label">Dosage Form</label>
+                            <select name="form" id="form" class="form-control">
+                                <option value="">Select form...</option>
+                                {% for form_option in dosage_forms %}
+                                <option value="{{ form_option }}" {% if medication and medication.form == form_option %}selected{% endif %}>{{ form_option }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="ndc" class="form-label">NDC Number</label>
+                            <input type="text" name="ndc" id="ndc" class="form-control font-mono"
+                                   value="{{ medication.ndc if medication else '' }}"
+                                   placeholder="XXXXX-XXXX-XX">
+                            <small class="form-text">National Drug Code (11 digits)</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Additional Info -->
+                <div class="form-section">
+                    <h4 class="form-section-title">Additional Information</h4>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="manufacturer" class="form-label">Manufacturer</label>
+                            <input type="text" name="manufacturer" id="manufacturer" class="form-control"
+                                   value="{{ medication.manufacturer if medication else '' }}"
+                                   placeholder="e.g., Purdue Pharma, Teva">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="default_unit" class="form-label">Default Unit</label>
+                            <select name="default_unit" id="default_unit" class="form-control">
+                                {% for unit_option in units %}
+                                <option value="{{ unit_option }}" {% if medication and medication.unit == unit_option %}selected{% elif not medication and unit_option == 'tablets' %}selected{% endif %}>{{ unit_option }}</option>
+                                {% endfor %}
+                            </select>
+                            <small class="form-text text-muted">This unit will be used throughout the app for counting</small>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="low_stock_threshold" class="form-label">Low Stock Alert Threshold</label>
+                            <input type="number" name="low_stock_threshold" id="low_stock_threshold" class="form-control"
+                                   value="{{ medication.low_stock_threshold if medication else 10 }}"
+                                   min="0" step="1" placeholder="10">
+                            <small class="form-text text-muted">Alert when total inventory falls below this number (0 to disable)</small>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="patient_inventory_only" value="true" 
+                                   {% if medication and medication.patient_inventory_only %}checked{% endif %}>
+                            <span><strong>Patient Inventory Only</strong></span>
+                        </label>
+                        <small class="form-text text-muted" style="margin-left: 1.5rem;">
+                            Check this for patient-specific medications (e.g., patient-owned controlled substances). 
+                            These will not appear in general inventory, receive, dispense, or daily count screens.
+                        </small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="notes" class="form-label">Notes</label>
+                        <textarea name="notes" id="notes" class="form-control" rows="2"
+                                  placeholder="Any additional notes about this medication">{{ medication.notes if medication else '' }}</textarea>
+                    </div>
+                    
+                    {% if medication %}
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" name="is_active" value="true" 
+                                   {% if medication.is_active %}checked{% endif %}>
+                            <span>Active (uncheck to hide from selection lists)</span>
+                        </label>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Submit -->
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
+                            <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                            <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+                        </svg>
+                        {% if medication %}Update{% else %}Add{% endif %} Medication
+                    </button>
+                    <a href="{{ url_for('medications') }}" class="btn btn-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

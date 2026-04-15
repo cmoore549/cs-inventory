@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block title %}Reorder Settings{% endblock %}
+{% block page_title %}Reorder Point Settings{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('reorder_list') }}" class="btn btn-secondary btn-sm">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+    </svg>
+    Back to Alerts
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">Medication Reorder Points</h3>
+    </div>
+    <div class="card-body">
+        <p class="text-muted mb-3">
+            Set reorder points for each medication. When inventory falls to or below the reorder point, 
+            an alert will appear on the Reorder Alerts page.
+        </p>
+        
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Medication</th>
+                        <th class="text-right">Current Stock</th>
+                        <th>Reorder Point</th>
+                        <th>Reorder Quantity</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for med in medications %}
+                    <tr id="row_{{ med.id }}">
+                        <td>
+                            <span class="schedule-badge schedule-{{ med.schedule|lower }}">{{ med.schedule }}</span>
+                            <strong>{{ med.name }}</strong>{% if med.strength %} <span class="text-muted">({{ med.strength }})</span>{% endif %}
+                        </td>
+                        <td class="text-right font-mono {% if med.is_low_stock %}text-danger{% endif %}">
+                            {{ med.total_quantity }}
+                        </td>
+                        <td>
+                            <form method="POST" class="inline-form" id="form_{{ med.id }}">
+                                <input type="hidden" name="medication_id" value="{{ med.id }}">
+                                <input type="number" name="reorder_point" class="form-control" 
+                                       style="width: 80px;" min="0" step="1"
+                                       value="{{ med.reorder_point or '' }}" placeholder="0">
+                        </td>
+                        <td>
+                                <input type="number" name="reorder_quantity" class="form-control" 
+                                       style="width: 80px;" min="0" step="1"
+                                       value="{{ med.reorder_quantity or '' }}" placeholder="0">
+                        </td>
+                        <td>
+                                <button type="submit" class="btn btn-primary btn-sm">Save</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="card mt-3">
+    <div class="card-header">
+        <h3 class="card-title">How Reorder Points Work</h3>
+    </div>
+    <div class="card-body">
+        <div class="info-grid">
+            <div class="info-item">
+                <h5>Reorder Point</h5>
+                <p>When total inventory falls to or below this number, an alert will be triggered. 
+                Set this to the minimum quantity you want to maintain.</p>
+            </div>
+            <div class="info-item">
+                <h5>Reorder Quantity</h5>
+                <p>The suggested quantity to order when placing a new order. 
+                This is typically enough to bring stock back to your desired level plus buffer.</p>
+            </div>
+            <div class="info-item">
+                <h5>Example</h5>
+                <p>If you use ~100 tablets/month and want 2 weeks buffer:<br>
+                Reorder Point: 50 tablets<br>
+                Reorder Quantity: 100 tablets</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.inline-form {
+    display: flex;
+    gap: var(--spacing-sm);
+    align-items: center;
+}
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: var(--spacing-lg);
+}
+.info-item h5 {
+    margin-bottom: var(--spacing-xs);
+    color: var(--primary);
+}
+.info-item p {
+    margin: 0;
+    color: var(--text-muted);
+    font-size: 0.875rem;
+}
+</style>
+{% endblock %}

@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}Login{% endblock %}
+
+{% block fullpage %}
+<div class="login-container">
+    <div class="login-card compact">
+        <div class="login-header compact">
+            <img src="https://magnolia-health.org/wp-content/uploads/2026/02/nobg.webp" alt="Magnolia Health" class="login-logo">
+            <div class="login-titles">
+                <h1>Magnolia Health</h1>
+                <p>CS Inventory System</p>
+            </div>
+        </div>
+        
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} compact-alert">{{ message }}</div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <form method="POST" action="{{ url_for('login') }}" class="login-form">
+            <div class="form-group compact">
+                <label for="username" class="form-label">Username</label>
+                <input type="text" id="username" name="username" class="form-control" required autofocus>
+            </div>
+            <div class="form-group compact">
+                <label for="password" class="form-label">Password</label>
+                <input type="password" id="password" name="password" class="form-control" required>
+            </div>
+            <button type="submit" class="btn btn-primary btn-block">Sign In</button>
+        </form>
+        
+        <div class="login-footer compact">
+            <p>&copy; {{ now.year }} Magnolia Health PLLC</p>
+        </div>
+    </div>
+</div>
+
+<style>
+.login-card.compact {
+    max-width: 340px;
+    padding: 1.5rem;
+}
+.login-header.compact {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--gray-200);
+}
+.login-header.compact .login-logo {
+    width: 60px;
+    height: 60px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+.login-titles h1 {
+    font-size: 1.25rem;
+    margin: 0;
+    line-height: 1.2;
+}
+.login-titles p {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin: 0.25rem 0 0;
+}
+.login-form .form-group.compact {
+    margin-bottom: 0.75rem;
+}
+.login-form .form-label {
+    font-size: 0.85rem;
+    margin-bottom: 0.25rem;
+}
+.login-form .form-control {
+    padding: 0.5rem 0.75rem;
+}
+.login-form .btn {
+    margin-top: 0.75rem;
+    padding: 0.6rem 1rem;
+}
+.compact-alert {
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 1rem;
+    font-size: 0.85rem;
+}
+.login-footer.compact {
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+}
+.login-footer.compact p {
+    font-size: 0.75rem;
+    margin: 0;
+}
+</style>
+{% endblock %}

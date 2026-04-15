@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}Patients{% endblock %}
+{% block page_title %}Patient Database{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('add_patient') }}" class="btn btn-primary btn-sm">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+    </svg>
+    Add Patient
+</a>
+{% endblock %}
+
+{% block content %}
+<div class="card mb-3">
+    <div class="card-body">
+        <form method="GET" class="search-bar">
+            <div class="search-input-wrapper">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" name="search" class="form-control" placeholder="Search by name, MRN, or phone..." value="{{ search }}">
+            </div>
+            <button type="submit" class="btn btn-secondary">Search</button>
+            {% if search %}
+            <a href="{{ url_for('patients') }}" class="btn btn-outline">Clear</a>
+            {% endif %}
+        </form>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+            Patients ({{ patients|length }})
+        </h3>
+    </div>
+    <div class="card-body">
+        {% if patients %}
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>DOB</th>
+                        <th>MRN</th>
+                        <th>Phone</th>
+                        <th>Transactions</th>
+                        <th>Patient Meds</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for patient in patients %}
+                    <tr>
+                        <td>
+                            <a href="{{ url_for('patient_detail', id=patient.id) }}" class="font-bold">
+                                {{ patient.full_name }}
+                            </a>
+                        </td>
+                        <td>{{ patient.date_of_birth.strftime('%m/%d/%Y') }}</td>
+                        <td class="font-mono">{{ patient.mrn or '-' }}</td>
+                        <td>{{ patient.phone or '-' }}</td>
+                        <td class="font-mono">{{ patient.transactions|length }}</td>
+                        <td class="font-mono">{{ patient.patient_medications|length }}</td>
+                        <td>
+                            <div class="btn-group">
+                                <a href="{{ url_for('patient_detail', id=patient.id) }}" class="btn btn-outline btn-sm">View</a>
+                                <a href="{{ url_for('edit_patient', id=patient.id) }}" class="btn btn-outline btn-sm">Edit</a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+            </svg>
+            <h3>No Patients Found</h3>
+            <p>{% if search %}No patients match your search.{% else %}Add your first patient to get started.{% endif %}</p>
+            <a href="{{ url_for('add_patient') }}" class="btn btn-primary">Add Patient</a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

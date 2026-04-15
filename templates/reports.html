@@ -1,0 +1,334 @@
+{% extends "base.html" %}
+
+{% block title %}Reports{% endblock %}
+{% block page_title %}Reports & Analytics{% endblock %}
+
+{% block content %}
+<style>
+.reports-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: var(--spacing-xl);
+}
+
+.reports-grid .card {
+    margin-bottom: 0;
+}
+
+.report-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.report-list li {
+    margin-bottom: var(--spacing-md);
+}
+
+.report-list li:last-child {
+    margin-bottom: 0;
+}
+
+.report-list a {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-md) var(--spacing-lg);
+    background: var(--gray-50);
+    border-radius: var(--radius-md);
+    text-decoration: none;
+    color: inherit;
+    transition: all 0.15s ease;
+    border: 1px solid var(--gray-200);
+}
+
+.report-list a:hover {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+
+.report-list a:hover .report-info span {
+    color: rgba(255,255,255,0.8);
+}
+
+.report-info {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.report-info strong {
+    font-size: 1rem;
+}
+
+.report-info span {
+    font-size: 0.85rem;
+    color: var(--gray-600);
+}
+
+.stats-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-sm) 0;
+    border-bottom: 1px solid var(--gray-100);
+}
+
+.stat-row:last-child {
+    border-bottom: none;
+}
+
+.export-form .form-row {
+    display: flex;
+    gap: var(--spacing-lg);
+    flex-wrap: wrap;
+    align-items: flex-end;
+}
+
+.export-form .form-group {
+    flex: 1;
+    min-width: 150px;
+}
+</style>
+
+<div class="reports-grid">
+    <!-- Usage Reports -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                </svg>
+                Transaction Reports
+            </h3>
+        </div>
+        <div class="card-body">
+            <ul class="report-list">
+                <li>
+                    <a href="{{ url_for('usage_report') }}">
+                        <div class="report-info">
+                            <strong>All Transactions</strong>
+                            <span>Complete transaction history (all types)</span>
+                        </div>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                            <polyline points="9 18 15 12 9 6"/>
+                        </svg>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('dispensing_log') }}">
+                        <div class="report-info">
+                            <strong>Dispensing Log</strong>
+                            <span>Medications dispensed to patients</span>
+                        </div>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                            <polyline points="9 18 15 12 9 6"/>
+                        </svg>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('waste_log') }}">
+                        <div class="report-info">
+                            <strong>Waste Log</strong>
+                            <span>Wasted medications with witnesses</span>
+                        </div>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                            <polyline points="9 18 15 12 9 6"/>
+                        </svg>
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+    
+    <!-- Inventory Reports -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                </svg>
+                Inventory Reports
+            </h3>
+        </div>
+        <div class="card-body">
+            <ul class="report-list">
+                <li>
+                    <a href="{{ url_for('inventory') }}">
+                        <div class="report-info">
+                            <strong>Current Inventory</strong>
+                            <span>All medications on hand</span>
+                        </div>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                            <polyline points="9 18 15 12 9 6"/>
+                        </svg>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('inventory') }}?schedule=II">
+                        <div class="report-info">
+                            <strong>Schedule II Inventory</strong>
+                            <span>Schedule II substances only (DEA separate records)</span>
+                        </div>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                            <polyline points="9 18 15 12 9 6"/>
+                        </svg>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('biennial_inventory') }}">
+                        <div class="report-info">
+                            <strong>Biennial Inventories</strong>
+                            <span>DEA required two-year inventories</span>
+                        </div>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                            <polyline points="9 18 15 12 9 6"/>
+                        </svg>
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+    
+    <!-- Compliance Reports -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                    <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>
+                </svg>
+                Compliance Reports
+            </h3>
+        </div>
+        <div class="card-body">
+            <ul class="report-list">
+                <li>
+                    <a href="{{ url_for('discrepancy_report') }}">
+                        <div class="report-info">
+                            <strong>Discrepancy Report</strong>
+                            <span>Count discrepancies and resolutions</span>
+                        </div>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                            <polyline points="9 18 15 12 9 6"/>
+                        </svg>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('theft_loss') }}">
+                        <div class="report-info">
+                            <strong>Theft/Loss Reports</strong>
+                            <span>DEA Form 106 submissions</span>
+                        </div>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                            <polyline points="9 18 15 12 9 6"/>
+                        </svg>
+                    </a>
+                </li>
+                <li>
+                    <a href="{{ url_for('audit_log') }}">
+                        <div class="report-info">
+                            <strong>Audit Log</strong>
+                            <span>Complete activity history</span>
+                        </div>
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                            <polyline points="9 18 15 12 9 6"/>
+                        </svg>
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+    
+    <!-- Quick Stats -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                    <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
+                    <line x1="6" y1="20" x2="6" y2="14"/>
+                </svg>
+                Quick Stats (Last 30 Days)
+            </h3>
+        </div>
+        <div class="card-body">
+            <div class="stats-list">
+                <div class="stat-row">
+                    <span>Total Transactions</span>
+                    <span class="font-mono font-bold">{{ stats.total_transactions }}</span>
+                </div>
+                <div class="stat-row">
+                    <span>Medications Dispensed</span>
+                    <span class="font-mono font-bold">{{ stats.total_dispensed }}</span>
+                </div>
+                <div class="stat-row">
+                    <span>Medications Wasted</span>
+                    <span class="font-mono font-bold">{{ stats.total_wasted }}</span>
+                </div>
+                <div class="stat-row">
+                    <span>Daily Counts Performed</span>
+                    <span class="font-mono font-bold">{{ stats.daily_counts }}</span>
+                </div>
+                <div class="stat-row">
+                    <span>Discrepancies Found</span>
+                    <span class="font-mono font-bold {% if stats.discrepancies > 0 %}text-warning{% endif %}">{{ stats.discrepancies }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Export Section -->
+<div class="card mt-3">
+    <div class="card-header">
+        <h3 class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            Export Data
+        </h3>
+    </div>
+    <div class="card-body">
+        <form method="GET" action="{{ url_for('export_report') }}" class="export-form">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="export_type" class="form-label">Report Type</label>
+                    <select name="type" id="export_type" class="form-control">
+                        <option value="transactions">All Transactions</option>
+                        <option value="dispensing">Dispensing Only</option>
+                        <option value="waste">Waste Only</option>
+                        <option value="inventory">Current Inventory</option>
+                        <option value="daily_counts">Daily Count History</option>
+                        <option value="discrepancies">Discrepancy Report</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="start_date" class="form-label">Start Date</label>
+                    <input type="date" name="start_date" id="start_date" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="end_date" class="form-label">End Date</label>
+                    <input type="date" name="end_date" id="end_date" class="form-control">
+                </div>
+                <input type="hidden" name="format" value="pdf">
+                <div class="form-group" style="align-self: flex-end;">
+                    <button type="submit" class="btn btn-primary">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        Export PDF
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

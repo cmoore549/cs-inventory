@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+
+{% block title %}{{ patient_med.patient_name }} - Patient Medication{% endblock %}
+{% block page_title %}Patient-Specific Medication{% endblock %}
+
+{% block header_actions %}
+<a href="{{ url_for('patient_inventory') }}" class="btn btn-secondary btn-sm">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+    </svg>
+    Back to List
+</a>
+{% if current_user.role == 'admin' %}
+<a href="{{ url_for('edit_patient_medication', id=patient_med.id) }}" class="btn btn-outline btn-sm">Edit Details</a>
+<a href="{{ url_for('delete_patient_medication', id=patient_med.id) }}" class="btn btn-outline btn-sm btn-danger-outline">Delete</a>
+{% endif %}
+{% if patient_med.status == 'active' %}
+<a href="{{ url_for('administer_patient_medication', id=patient_med.id) }}" class="btn btn-primary btn-sm">Administer</a>
+<a href="{{ url_for('waste_patient_medication', id=patient_med.id) }}" class="btn btn-warning btn-sm">Waste</a>
+{% if patient_med.quantity_remaining > 0 %}
+<a href="{{ url_for('destroy_patient_medication', id=patient_med.id) }}" class="btn btn-danger btn-sm">Destroy</a>
+{% endif %}
+{% endif %}
+{% endblock %}
+
+{% block content %}
+<!-- Patient & Medication Info -->
+<div class="card mb-3">
+    <div class="card-header">
+        <h3 class="card-title">
+            <span class="schedule-badge schedule-{{ patient_med.medication.schedule|lower }}">{{ patient_med.medication.schedule }}</span>
+            {{ patient_med.medication.name }}
+            {% if patient_med.medication.strength %}({{ patient_med.medication.strength }}){% endif %}
+        </h3>
+        {% if patient_med.status == 'active' %}
+        <span class="status-badge status-success">Active</span>
+        {% elif patient_med.status == 'completed' %}
+        <span class="status-badge status-info">Completed</span>
+        {% elif patient_med.status == 'expired' %}
+        <span class="status-badge status-warning">Expired</span>
+        {% elif patient_med.status == 'destroyed' %}
+        <span class="status-badge status-danger">Destroyed</span>
+        {% endif %}
+    </div>
+    <div class="card-body">
+        <div class="detail-grid">
+            <div class="detail-section">
+                <h4>Patient Information</h4>
+                <dl class="detail-list">
+                    <dt>Name</dt>
+                    <dd><strong>{{ patient_med.patient_name }}</strong></dd>
+                    
+                    <dt>Date of Birth</dt>
+                    <dd>{{ patient_med.patient_dob.strftime('%m/%d/%Y') }}</dd>
+                    
+                    <dt>MRN</dt>
+                    <dd>{{ patient_med.patient_mrn or '-' }}</dd>
+                    
+                    <dt>Phone</dt>
+                    <dd>{{ patient_med.patient_phone or '-' }}</dd>
+                </dl>
+            </div>
+            
+            <div class="detail-section">
+                <h4>Medication Details</h4>
+                <dl class="detail-list">
+                    <dt>Prescriber</dt>
+                    <dd>{{ patient_med.prescriber.full_name }}{% if patient_med.prescriber.credentials %} ({{ patient_med.prescriber.credentials }}){% endif %}</dd>
+                    
+                    <dt>Prescription #</dt>
+                    <dd>{{ patient_med.prescription_number or '-' }}</dd>
+                    
+                    <dt>Lot Number</dt>
+                    <dd class="font-mono">{{ patient_med.lot_number or '-' }}</dd>
+                    
+                    <dt>Storage</dt>
+                    <dd>{{ patient_med.storage_location or '-' }}</dd>
+                </dl>
+            </div>
+            
+            <div class="detail-section">
+                <h4>Quantity Tracking</h4>
+                <dl class="detail-list">
+                    <dt>Quantity Received</dt>
+                    <dd class="font-mono">{{ patient_med.quantity_prepared }} {{ patient_med.unit }}</dd>
+                    
+                    <dt>Quantity Remaining</dt>
+                    <dd>
+                        <span class="quantity-display {% if patient_med.quantity_remaining <= 0 %}quantity-low{% else %}quantity-ok{% endif %}">
+                            {{ patient_med.quantity_remaining }} {{ patient_med.unit }}
+                        </span>
+                    </dd>
+                    
+                    <dt>Date Received</dt>
+                    <dd>{{ patient_med.preparation_date.strftime('%m/%d/%Y') }}</dd>
+                    
+                    <dt>Expiration Date</dt>
+                    <dd>
+                        {% if patient_med.expiration_date %}
+                        <span class="{% if patient_med.is_expired %}text-danger{% elif patient_med.days_until_expiration <= 30 %}text-warning{% endif %}">
+                            {{ patient_med.expiration_date.strftime('%m/%d/%Y') }}
+                            {% if patient_med.is_expired %}(EXPIRED){% elif patient_med.days_until_expiration <= 30 %}({{ patient_med.days_until_expiration }} days){% endif %}
+                        </span>
+                        {% else %}
+                        -
+                        {% endif %}
+                    </dd>
+                </dl>
+            </div>
+            
+            <div class="detail-section">
+                <h4>Receipt Info</h4>
+                <dl class="detail-list">
+                    <dt>Received By</dt>
+                    <dd>{{ patient_med.preparer.full_name }}</dd>
+                    
+                    <dt>Created</dt>
+                    <dd>{{ patient_med.created_at.strftime('%m/%d/%Y %I:%M %p') }}</dd>
+                    
+                    {% if patient_med.source_inventory %}
+                    <dt>Source</dt>
+                    <dd>Stock Lot: {{ patient_med.source_inventory.lot_number or 'N/A' }}</dd>
+                    {% endif %}
+                </dl>
+            </div>
+        </div>
+        
+        {% if patient_med.notes %}
+        <div class="mt-3">
+            <h4 style="font-size:0.85rem;color:var(--text-muted);text-transform:uppercase;">Notes</h4>
+            <p>{{ patient_med.notes }}</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Administration Log -->
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+            </svg>
+            Administration Log
+        </h3>
+    </div>
+    <div class="card-body">
+        {% if logs %}
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date/Time</th>
+                        <th>Type</th>
+                        <th>Quantity</th>
+                        <th>Balance After</th>
+                        <th>By</th>
+                        <th>Witness</th>
+                        <th>Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for log in logs %}
+                    <tr>
+                        <td class="font-mono" style="white-space:nowrap;">{{ log.administration_date.strftime('%m/%d/%Y %I:%M %p') }}</td>
+                        <td>
+                            {% if log.log_type == 'administered' %}
+                            <span class="status-badge status-success">Administered</span>
+                            {% elif log.log_type == 'wasted' %}
+                            <span class="status-badge status-warning">Wasted</span>
+                            {% elif log.log_type == 'destroyed' %}
+                            <span class="status-badge status-danger">Destroyed</span>
+                            {% else %}
+                            <span class="status-badge">{{ log.log_type|title }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="font-mono text-danger">-{{ log.quantity }} {{ patient_med.unit }}</td>
+                        <td class="font-mono font-bold">{{ log.quantity_after }} {{ patient_med.unit }}</td>
+                        <td>{{ log.administrator.full_name if log.administrator else '-' }}</td>
+                        <td>{{ log.witness.full_name if log.witness else '-' }}</td>
+                        <td>
+                            {% if log.waste_reason %}{{ log.waste_reason }}{% endif %}
+                            {% if log.notes %}{% if log.waste_reason %}<br>{% endif %}{{ log.notes }}{% endif %}
+                            {% if not log.waste_reason and not log.notes %}-{% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48" style="opacity:0.3;">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+            </svg>
+            <h3>No Log Entries</h3>
+            <p>Administration, waste, and destruction records will appear here.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.detail-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 2rem;
+}
+.detail-section h4 {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    margin-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.5rem;
+}
+.detail-list {
+    margin: 0;
+}
+.detail-list dt {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 0.5rem;
+}
+.detail-list dd {
+    margin: 0;
+}
+.status-info {
+    background: rgba(45, 106, 159, 0.1);
+    color: var(--info);
+}
+</style>
+{% endblock %}

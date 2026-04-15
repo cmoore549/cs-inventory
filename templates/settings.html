@@ -1,0 +1,685 @@
+{% extends "base.html" %}
+
+{% block title %}Settings{% endblock %}
+{% block page_title %}System Settings{% endblock %}
+
+{% block content %}
+<style>
+.settings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.settings-grid .card {
+    margin-bottom: 0;
+}
+
+.settings-grid .card-body,
+.card .card-body {
+    padding: 1.5rem 2rem;
+}
+
+.card.mt-3 {
+    margin-top: 1.5rem !important;
+}
+
+.card-header {
+    padding: 1rem 2rem;
+}
+
+.registration-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.registration-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    background: var(--gray-50);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--gray-200);
+}
+
+.registration-item.expiring {
+    background: rgba(181, 137, 0, 0.05);
+    border-color: var(--warning);
+}
+
+.reg-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.reg-expiration {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.danger-zone {
+    border: 1px solid var(--danger);
+}
+
+.danger-zone .card-header {
+    background: rgba(181, 61, 61, 0.05);
+}
+
+.danger-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.danger-action {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    background: var(--gray-50);
+    border-radius: var(--radius-md);
+}
+
+.danger-action div {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.danger-action span {
+    font-size: 0.85rem;
+    color: var(--gray-600);
+}
+
+.form-row {
+    display: flex;
+    gap: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.form-row .form-group {
+    flex: 1;
+}
+
+.form-group {
+    margin-bottom: 1.25rem;
+}
+
+.form-group:last-child {
+    margin-bottom: 0;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    cursor: pointer;
+    padding: 0.5rem 0;
+}
+
+.checkbox-label input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+}
+
+.role-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.role-admin { background: rgba(6, 50, 90, 0.1); color: var(--primary); }
+.role-provider { background: rgba(45, 122, 79, 0.1); color: var(--success); }
+.role-staff { background: rgba(45, 106, 159, 0.1); color: var(--info); }
+
+.form-text {
+    display: block;
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--gray-600);
+}
+
+.mt-2 { margin-top: 1rem; }
+.mt-1 { margin-top: 0.5rem; }
+.mb-3 { margin-bottom: 1rem; }
+
+.config-options-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+}
+.config-section h4 {
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.config-list {
+    max-height: 250px;
+    overflow-y: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    margin-bottom: 0.75rem;
+}
+.config-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.875rem;
+}
+.config-item:last-child {
+    border-bottom: none;
+}
+.config-item.inactive {
+    opacity: 0.5;
+    background: var(--gray-50);
+}
+.config-item.inactive span {
+    text-decoration: line-through;
+}
+.config-actions {
+    display: flex;
+    gap: 0.25rem;
+}
+.config-add-form {
+    display: flex;
+    gap: 0.5rem;
+}
+.btn-xs {
+    padding: 0.2rem 0.4rem;
+    font-size: 0.75rem;
+}
+
+.settings-section-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--gray-500);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--gray-200);
+}
+</style>
+
+<div class="settings-grid">
+    <!-- Practice Information -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                    <polyline points="9 22 9 12 15 12 15 22"/>
+                </svg>
+                Practice Information
+            </h3>
+        </div>
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('update_practice_info') }}">
+                <div class="form-group">
+                    <label for="practice_name" class="form-label">Practice Name</label>
+                    <input type="text" name="practice_name" id="practice_name" class="form-control"
+                           value="{{ settings.practice_name or 'Magnolia Health PLLC' }}">
+                </div>
+                <div class="form-group">
+                    <label for="practice_address" class="form-label">Address</label>
+                    <textarea name="practice_address" id="practice_address" class="form-control" rows="2">{{ settings.practice_address or '' }}</textarea>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="practice_phone" class="form-label">Phone</label>
+                        <input type="tel" name="practice_phone" id="practice_phone" class="form-control"
+                               value="{{ settings.practice_phone or '' }}">
+                    </div>
+                    <div class="form-group">
+                        <label for="practice_fax" class="form-label">Fax</label>
+                        <input type="tel" name="practice_fax" id="practice_fax" class="form-control"
+                               value="{{ settings.practice_fax or '' }}">
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">Save Changes</button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- DEA & NC Registrations -->
+    <div class="card">
+        <div class="card-header">
+            <h3 class="card-title">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                </svg>
+                Registrations
+            </h3>
+            <a href="{{ url_for('add_registration') }}" class="btn btn-primary btn-sm">Add Registration</a>
+        </div>
+        <div class="card-body">
+            {% if registrations %}
+            <div class="registration-list">
+                {% for reg in registrations %}
+                <div class="registration-item {% if reg.days_until_expiration <= 60 %}expiring{% endif %}">
+                    <div class="reg-info">
+                        <strong>{{ reg.registration_type }}</strong>
+                        <span class="font-mono">{{ reg.registration_number }}</span>
+                    </div>
+                    <div class="reg-expiration">
+                        Expires: {{ reg.expiration_date.strftime('%m/%d/%Y') if reg.expiration_date else 'N/A' }}
+                        {% if reg.days_until_expiration <= 0 %}
+                        <span class="status-badge status-danger">EXPIRED</span>
+                        {% elif reg.days_until_expiration <= 60 %}
+                        <span class="status-badge status-warning">{{ reg.days_until_expiration }}d</span>
+                        {% endif %}
+                    </div>
+                    <div class="reg-actions">
+                        <a href="{{ url_for('edit_registration', id=reg.id) }}" class="btn btn-outline btn-sm">Edit</a>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-muted">No registrations on file. <a href="{{ url_for('add_registration') }}">Add your DEA and NC registrations.</a></p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- System Settings -->
+<div class="card mt-3">
+    <div class="card-header">
+        <h3 class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                <circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+            System Settings
+        </h3>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('update_system_settings') }}">
+            <div class="settings-section-title">Inventory Alerts</div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="low_inventory_threshold" class="form-label">Default Low Stock Threshold</label>
+                    <input type="number" name="low_inventory_threshold" id="low_inventory_threshold" 
+                           class="form-control" value="{{ settings.low_inventory_threshold or 10 }}" min="1">
+                    <small class="form-text">Default threshold for new medications (can be customized per medication)</small>
+                </div>
+                <div class="form-group">
+                    <label for="expiration_warning_days" class="form-label">Expiration Warning Days</label>
+                    <input type="number" name="expiration_warning_days" id="expiration_warning_days" 
+                           class="form-control" value="{{ settings.expiration_warning_days or 90 }}" min="1">
+                    <small class="form-text">Show warning this many days before expiration</small>
+                </div>
+            </div>
+            
+            <div class="settings-section-title">Compliance Requirements</div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="biennial_reminder_days" class="form-label">Biennial Inventory Reminder</label>
+                    <input type="number" name="biennial_reminder_days" id="biennial_reminder_days" 
+                           class="form-control" value="{{ settings.biennial_reminder_days or 30 }}" min="1" max="90">
+                    <small class="form-text">Days before biennial due date to show reminder</small>
+                </div>
+                <div class="form-group">
+                    <label for="registration_reminder_days" class="form-label">Registration Expiration Reminder</label>
+                    <input type="number" name="registration_reminder_days" id="registration_reminder_days" 
+                           class="form-control" value="{{ settings.registration_reminder_days or 60 }}" min="1" max="180">
+                    <small class="form-text">Days before registration expires to show warning</small>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" name="require_daily_counts" value="true"
+                           {% if settings.require_daily_counts %}checked{% endif %}>
+                    <span>Require daily counts for Schedule II substances</span>
+                </label>
+                <small class="form-text" style="margin-left:26px;">When enabled, dashboard will show reminder if daily count not performed</small>
+            </div>
+            
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" name="require_witness_waste" value="true"
+                           {% if settings.require_witness_waste %}checked{% endif %}>
+                    <span>Require witness for waste transactions</span>
+                </label>
+                <small class="form-text" style="margin-left:26px;">Recommended for DEA compliance</small>
+            </div>
+            
+            <div class="form-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" name="require_dual_verification" value="true"
+                           {% if settings.require_dual_verification %}checked{% endif %}>
+                    <span>Require dual verification for physical inventory counts</span>
+                </label>
+                <small class="form-text" style="margin-left:26px;">Second user must verify count accuracy</small>
+            </div>
+            
+            <button type="submit" class="btn btn-primary">Save Settings</button>
+        </form>
+    </div>
+</div>
+
+<!-- Configurable Options -->
+<div class="card mt-3" id="configurable-options">
+    <div class="card-header">
+        <h3 class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+                <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+            </svg>
+            Configurable Options
+        </h3>
+    </div>
+    <div class="card-body">
+        <div class="config-options-grid">
+            <!-- Dosage Forms -->
+            <div class="config-section" id="dosage-forms">
+                <h4>Dosage Forms</h4>
+                <div class="config-list">
+                    {% if dosage_forms %}
+                        {% for form in dosage_forms %}
+                        <div class="config-item {% if not form.is_active %}inactive{% endif %}">
+                            <span>{{ form.name }}</span>
+                            <div class="config-actions">
+                                <form method="POST" action="{{ url_for('toggle_dosage_form', id=form.id) }}" style="display:inline;">
+                                    <button type="submit" class="btn btn-outline btn-xs" title="{{ 'Deactivate' if form.is_active else 'Activate' }}">
+                                        {% if form.is_active %}
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                        {% else %}
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                                        {% endif %}
+                                    </button>
+                                </form>
+                                <form method="POST" action="{{ url_for('delete_dosage_form', id=form.id) }}" style="display:inline;" onsubmit="return confirm('Delete this dosage form?');">
+                                    <button type="submit" class="btn btn-outline btn-xs text-danger" title="Delete">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted small" style="padding:0.75rem;">Using default dosage forms. Add custom forms below.</p>
+                    {% endif %}
+                </div>
+                <form method="POST" action="{{ url_for('add_dosage_form') }}" class="config-add-form">
+                    <input type="text" name="name" class="form-control form-control-sm" placeholder="New dosage form..." required>
+                    <button type="submit" class="btn btn-primary btn-sm">Add</button>
+                </form>
+            </div>
+            
+            <!-- Units of Measure -->
+            <div class="config-section" id="units">
+                <h4>Units of Measure</h4>
+                <div class="config-list">
+                    {% if units %}
+                        {% for unit in units %}
+                        <div class="config-item {% if not unit.is_active %}inactive{% endif %}">
+                            <span>{{ unit.name }}{% if unit.abbreviation and unit.abbreviation != unit.name %} ({{ unit.abbreviation }}){% endif %}</span>
+                            <div class="config-actions">
+                                <form method="POST" action="{{ url_for('toggle_unit', id=unit.id) }}" style="display:inline;">
+                                    <button type="submit" class="btn btn-outline btn-xs" title="{{ 'Deactivate' if unit.is_active else 'Activate' }}">
+                                        {% if unit.is_active %}
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                        {% else %}
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                                        {% endif %}
+                                    </button>
+                                </form>
+                                <form method="POST" action="{{ url_for('delete_unit', id=unit.id) }}" style="display:inline;" onsubmit="return confirm('Delete this unit?');">
+                                    <button type="submit" class="btn btn-outline btn-xs text-danger" title="Delete">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted small" style="padding:0.75rem;">Using default units. Add custom units below.</p>
+                    {% endif %}
+                </div>
+                <form method="POST" action="{{ url_for('add_unit') }}" class="config-add-form">
+                    <input type="text" name="name" class="form-control form-control-sm" placeholder="New unit..." required style="flex:2;">
+                    <input type="text" name="abbreviation" class="form-control form-control-sm" placeholder="Abbrev." style="flex:1;">
+                    <button type="submit" class="btn btn-primary btn-sm">Add</button>
+                </form>
+            </div>
+            
+            <!-- Storage Locations -->
+            <div class="config-section" id="storage-locations">
+                <h4>Storage Locations</h4>
+                <div class="config-list">
+                    {% if storage_locations %}
+                        {% for location in storage_locations %}
+                        <div class="config-item {% if not location.is_active %}inactive{% endif %}">
+                            <span>{{ location.name }}{% if location.description %} <small class="text-muted">- {{ location.description }}</small>{% endif %}</span>
+                            <div class="config-actions">
+                                <form method="POST" action="{{ url_for('toggle_storage_location', id=location.id) }}" style="display:inline;">
+                                    <button type="submit" class="btn btn-outline btn-xs" title="{{ 'Deactivate' if location.is_active else 'Activate' }}">
+                                        {% if location.is_active %}
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                                        {% else %}
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                                        {% endif %}
+                                    </button>
+                                </form>
+                                <form method="POST" action="{{ url_for('delete_storage_location', id=location.id) }}" style="display:inline;" onsubmit="return confirm('Delete this storage location?');">
+                                    <button type="submit" class="btn btn-outline btn-xs text-danger" title="Delete">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted small" style="padding:0.75rem;">Using default locations. Add custom locations below.</p>
+                    {% endif %}
+                </div>
+                <form method="POST" action="{{ url_for('add_storage_location') }}" class="config-add-form">
+                    <input type="text" name="name" class="form-control form-control-sm" placeholder="New location..." required style="flex:2;">
+                    <input type="text" name="description" class="form-control form-control-sm" placeholder="Description..." style="flex:2;">
+                    <button type="submit" class="btn btn-primary btn-sm">Add</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- User Management -->
+<div class="card mt-3">
+    <div class="card-header">
+        <h3 class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+            User Management
+        </h3>
+        <a href="{{ url_for('add_user') }}" class="btn btn-primary btn-sm">Add User</a>
+    </div>
+    <div class="card-body">
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Username</th>
+                        <th>Role</th>
+                        <th>DEA Number</th>
+                        <th>Status</th>
+                        <th>Last Login</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for user in users %}
+                    <tr>
+                        <td><strong>{{ user.full_name }}</strong></td>
+                        <td class="font-mono">{{ user.username }}</td>
+                        <td>
+                            <span class="role-badge role-{{ user.role }}">{{ user.role|title }}</span>
+                        </td>
+                        <td class="font-mono">{{ user.dea_number or '-' }}</td>
+                        <td>
+                            {% if user.is_active %}
+                            <span class="status-badge status-success">Active</span>
+                            {% else %}
+                            <span class="status-badge status-inactive">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ user.last_login.strftime('%m/%d/%Y %H:%M') if user.last_login else 'Never' }}</td>
+                        <td>
+                            <div class="btn-group">
+                                <a href="{{ url_for('edit_user', id=user.id) }}" class="btn btn-outline btn-sm">Edit</a>
+                                {% if user.id != current_user.id %}
+                                <form method="POST" action="{{ url_for('toggle_user', id=user.id) }}" style="display:inline;">
+                                    <button type="submit" class="btn btn-outline btn-sm">
+                                        {% if user.is_active %}Deactivate{% else %}Activate{% endif %}
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Danger Zone -->
+{% if current_user.role == 'admin' %}
+<div class="card mt-3 danger-zone">
+    <div class="card-header">
+        <h3 class="card-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            Danger Zone
+        </h3>
+    </div>
+    <div class="card-body">
+        <p class="text-muted mb-3">These actions are irreversible. Please proceed with caution.</p>
+        
+        <div class="danger-actions">
+            <div class="danger-action">
+                <div>
+                    <strong>Export All Data</strong>
+                    <span>Download complete database backup as JSON</span>
+                </div>
+                <a href="{{ url_for('export_all_data') }}" class="btn btn-outline">Export</a>
+            </div>
+            
+            <div class="danger-action">
+                <div>
+                    <strong>Data Reset</strong>
+                    <span>Clear all transactions, counts, and documents (keeps medications and users)</span>
+                </div>
+                <button type="button" class="btn btn-danger" onclick="openResetModal()">Reset Data</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Data Reset Modal -->
+<div id="resetModal" class="modal" style="display:none;">
+    <div class="modal-content" style="max-width:500px;">
+        <div class="modal-header">
+            <h3>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20" style="color:var(--danger);">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+                Data Reset Confirmation
+            </h3>
+            <button type="button" class="modal-close" onclick="closeResetModal()">&times;</button>
+        </div>
+        <form method="POST" action="{{ url_for('reset_data') }}">
+            <div class="modal-body">
+                <div class="alert alert-danger mb-3">
+                    <strong>Warning:</strong> This action is permanent and cannot be undone. All transactions, daily counts, biennial inventories, documents, and theft/loss reports will be deleted. Inventory quantities will be reset to zero.
+                </div>
+                
+                <p class="mb-3">To proceed, authenticate yourself and have a witness verify this action.</p>
+                
+                <div class="form-group">
+                    <label class="required">Your Username</label>
+                    <input type="text" name="username" class="form-control" required autocomplete="off">
+                </div>
+                
+                <div class="form-group">
+                    <label class="required">Your Password</label>
+                    <input type="password" name="password" class="form-control" required autocomplete="off">
+                </div>
+                
+                <div class="form-group">
+                    <label class="required">Witness</label>
+                    <select name="witness_id" class="form-control" required>
+                        <option value="">-- Select Witness --</option>
+                        {% for user in users %}
+                        {% if user.id != current_user.id and user.is_active %}
+                        <option value="{{ user.id }}">{{ user.full_name }}{% if user.credentials %} ({{ user.credentials }}){% endif %}</option>
+                        {% endif %}
+                        {% endfor %}
+                    </select>
+                    <small class="text-muted">Witness must be a different active user</small>
+                </div>
+                
+                <div class="form-group">
+                    <label class="required">Witness Password</label>
+                    <input type="password" name="witness_password" class="form-control" required autocomplete="off">
+                </div>
+                
+                <div class="form-group">
+                    <label class="required">Reason for Reset</label>
+                    <textarea name="reason" class="form-control" rows="2" required placeholder="Explain why this data reset is necessary"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeResetModal()">Cancel</button>
+                <button type="submit" class="btn btn-danger">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                        <polyline points="3 6 5 6 21 6"/>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                    </svg>
+                    Confirm Data Reset
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openResetModal() {
+    document.getElementById('resetModal').style.display = 'flex';
+}
+
+function closeResetModal() {
+    document.getElementById('resetModal').style.display = 'none';
+    document.querySelector('#resetModal form').reset();
+}
+
+document.getElementById('resetModal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeResetModal();
+    }
+});
+</script>
+{% endif %}
+{% endblock %}
